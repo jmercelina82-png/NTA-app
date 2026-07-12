@@ -1,0 +1,8 @@
+{
+  "name": "fsb-rapport",
+  "version": "1.0.0",
+  "description": "FSB NTA 8025 Rapportage App",
+  "dependencies": {
+    "nodemailer": "^6.9.7"
+  }
+}
