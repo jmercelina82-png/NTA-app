@@ -103,8 +103,11 @@ exports.handler = async function (event) {
       return { statusCode: 409, headers, body: JSON.stringify({ error: 'Rapport is al verzonden en kan niet meer bewerkt worden' }) };
     }
 
-    const rapportnummer = typeof body.rapportnummer === 'string' && body.rapportnummer.trim()
-      ? body.rapportnummer.trim()
+    // Het formulier stuurt het rapportnummer als onderdeel van f (net als adres/plaats/etc),
+    // niet als los top-level veld - dat is waar de client 'm ook vandaan leest/toont.
+    const clientRapportnummer = body.f && body.f.rapportnummer;
+    const rapportnummer = typeof clientRapportnummer === 'string' && clientRapportnummer.trim()
+      ? clientRapportnummer.trim()
       : bestaand.rapportnummer;
 
     const rec = {
