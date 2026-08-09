@@ -8,18 +8,24 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:8888,h
   .map(o => o.trim())
   .filter(Boolean);
 
-function corsHeaders(origin, allowHeaders = 'Content-Type') {
-  const allowed = ALLOWED_ORIGINS.includes(origin);
-  return {
-    'Access-Control-Allow-Origin': allowed ? origin : 'null',
+// Browsers laten de Origin-header weg bij same-origin GET-verzoeken (alleen
+// "unsafe" methodes zoals POST krijgen 'm gegarandeerd mee) - een lege origin
+// betekent dus een gewoon same-origin verzoek vanuit onze eigen pagina, geen
+// cross-site aanroep. Alleen een AANWEZIGE, niet-toegestane origin wordt geweigerd.
+function corsHeaders(origin, allowHeaders = 'Content-Type', allowMethods = 'POST, OPTIONS') {
+  const headers = {
     'Access-Control-Allow-Headers': allowHeaders,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': allowMethods,
     'Vary': 'Origin'
   };
+  if (origin) {
+    headers['Access-Control-Allow-Origin'] = ALLOWED_ORIGINS.includes(origin) ? origin : 'null';
+  }
+  return headers;
 }
 
 function isAllowedOrigin(origin) {
-  return ALLOWED_ORIGINS.includes(origin);
+  return !origin || ALLOWED_ORIGINS.includes(origin);
 }
 
 function getClientIp(event) {
@@ -102,6 +108,14 @@ function safeCompare(a, b) {
   return crypto.timingSafeEqual(ha, hb);
 }
 
+// Gedeelde sessie-check voor alle functions die achter het PIN-scherm zitten.
+// Geeft true terug als event.headers['x-session-token'] geldig is voor SESSION_SECRET.
+function hasValidSession(event) {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) return false;
+  return verifySessionToken(event.headers['x-session-token'], secret);
+}
+
 module.exports = {
   ALLOWED_ORIGINS,
   corsHeaders,
@@ -110,5 +124,6 @@ module.exports = {
   checkRateLimit,
   createSessionToken,
   verifySessionToken,
-  safeCompare
+  safeCompare,
+  hasValidSession
 };

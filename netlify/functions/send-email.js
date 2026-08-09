@@ -4,8 +4,9 @@ const {
   isAllowedOrigin,
   getClientIp,
   checkRateLimit,
-  verifySessionToken
+  hasValidSession
 } = require('./lib/_shared');
+const { getInspectieStore, isValidId, inspectieKey } = require('./lib/inspecties');
 
 // ============ CONFIG ============
 const MAX_SUBJECT_LEN = 200;
@@ -38,9 +39,7 @@ exports.handler = async function(event) {
 
   // Vereist een geldig sessietoken van verify-pin.js. Zonder dit kan de mailfunctie
   // rechtstreeks aangeroepen worden zelfs als de client-side PIN-check omzeild is.
-  const sessionToken = event.headers['x-session-token'];
-  const SESSION_SECRET = process.env.SESSION_SECRET;
-  if (!SESSION_SECRET || !verifySessionToken(sessionToken, SESSION_SECRET)) {
+  if (!hasValidSession(event)) {
     return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sessie verlopen of ongeldig, log opnieuw in' }) };
   }
 
@@ -56,7 +55,7 @@ exports.handler = async function(event) {
 
   try {
     const data = JSON.parse(event.body);
-    const { subject, message, pdfBase64, filename } = data;
+    const { subject, message, pdfBase64, filename, id } = data;
 
     if (subject && subject.length > MAX_SUBJECT_LEN) {
       return { statusCode: 400, headers, body: JSON.stringify({ error: `Onderwerp te lang (max ${MAX_SUBJECT_LEN} tekens)` }) };
@@ -106,6 +105,24 @@ exports.handler = async function(event) {
     }
 
     await transporter.sendMail(mailOptions);
+
+    // Best effort: koppel het verzonden rapport aan de inspectie en zet 'm op
+    // afgerond. Een fout hier mag de succesvolle verzending niet ongedaan maken.
+    if (isValidId(id)) {
+      try {
+        const store = getInspectieStore();
+        const key = inspectieKey(id);
+        const rec = await store.get(key, { type: 'json' });
+        if (rec && rec.status !== 'afgerond') {
+          rec.status = 'afgerond';
+          rec.verzonden = Date.now();
+          rec.laatstGewijzigd = Date.now();
+          await store.setJSON(key, rec);
+        }
+      } catch (statusErr) {
+        console.warn('Kon inspectie niet op afgerond zetten:', statusErr.message);
+      }
+    }
 
     return {
       statusCode: 200,

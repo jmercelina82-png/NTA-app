@@ -178,6 +178,13 @@ textarea { resize: vertical; min-height: 70px; }
 .wb-n { background: #eee; color: #888; } .wb-o { background: #fef3cd; color: #856404; } .wb-k { background: #d4f5e2; color: #155724; }
 .wbtn { padding: 7px 14px; border: 2px solid #1a4fa0; background: white; color: #1a4fa0; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; flex-shrink: 0; }
 .wdel { padding: 7px 10px; border: 2px solid #e74c3c; background: white; color: #e74c3c; border-radius: 8px; font-weight: 700; font-size: 12px; cursor: pointer; flex-shrink: 0; }
+.dash-sectie-titel { font-size: 12px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .04em; margin: 22px 2px 10px; }
+.dash-leeg { background: white; border-radius: 10px; padding: 18px 14px; text-align: center; color: #999; font-size: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+#archief-detail { display: none; position: fixed; inset: 0; background: #f0f4f8; z-index: 210; overflow-y: auto; }
+#archief-detail.on { display: block; }
+.arch-rij { background: white; border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.08); display: flex; justify-content: space-between; gap: 12px; }
+.arch-rij .lb2 { font-size: 11px; color: #888; }
+.arch-rij .wa { font-size: 14px; text-align: right; }
 .btn-nieuw-w { width: 100%; padding: 16px; border: 2px dashed #1a4fa0; background: white; color: #1a4fa0; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer; margin-top: 4px; }
 .save-dot { width: 9px; height: 9px; border-radius: 50%; background: #27ae60; opacity: 0; transition: opacity .3s; flex-shrink: 0; }
 .save-dot.on { opacity: 1; }
@@ -221,20 +228,31 @@ textarea { resize: vertical; min-height: 70px; }
 <div id="dash">
  <div class="dh">
  <div>
- <div class="dh-titel"> Woningen vandaag</div>
+ <div class="dh-titel"> Inspecties</div>
  <div class="dh-datum" id="d-dat"></div>
  </div>
- <button class="hdr-btn" id="btn-sluitdash"> Terug</button>
+ <button class="hdr-btn" id="btn-sluitdash" style="display:none;"> Terug</button>
  </div>
  <div class="db">
  <div class="dstats">
  <div class="dstat"><div class="nr nr-bl" id="s-tot">0</div><div class="lb2">Totaal</div></div>
+ <div class="dstat"><div class="nr nr-wn" id="s-op">0</div><div class="lb2">Openstaand</div></div>
  <div class="dstat"><div class="nr nr-ok" id="s-kl">0</div><div class="lb2">Afgerond</div></div>
- <div class="dstat"><div class="nr nr-wn" id="s-op">0</div><div class="lb2">Bezig</div></div>
  </div>
- <div id="w-lijst"></div>
- <button class="btn-nieuw-w" id="btn-nieuw">+ Nieuwe woning toevoegen</button>
+ <button class="btn-nieuw-w" id="btn-nieuw">+ Nieuwe inspectie</button>
+ <div class="dash-sectie-titel">Openstaand</div>
+ <div id="w-lijst-open"><div class="dash-leeg">Laden...</div></div>
+ <div class="dash-sectie-titel">Afgerond</div>
+ <div id="w-lijst-klaar"><div class="dash-leeg">Laden...</div></div>
  </div>
+</div>
+
+<div id="archief-detail">
+ <div class="dh">
+ <div class="dh-titel"> Rapport (alleen bekijken)</div>
+ <button class="hdr-btn" id="btn-sluitarchief"> Terug</button>
+ </div>
+ <div class="db" id="archief-detail-inhoud"></div>
 </div>
 
 <div class="hdr">
@@ -274,6 +292,8 @@ textarea { resize: vertical; min-height: 70px; }
 
  <div class="card">
  <div class="card-title"> Objectgegevens</div>
+ <label class="lb">Rapportnummer</label>
+ <input type="text" id="rapportnummer" placeholder="NTA-2026-001">
  <label class="lb">Adres</label>
  <input type="text" id="adres" placeholder="Straatnaam + huisnummer">
  <div class="g2">
@@ -600,7 +620,7 @@ const _PS = 'fsb_session';
 let _pi = '';
 (function _pinInit(){
   const s = localStorage.getItem(_PS);
-  if(s){try{const{t}=JSON.parse(s);if((Date.now()-t)/3600000<24){document.getElementById('pin-screen').style.display='none';return;}}catch(_){}}
+  if(s){try{const{t}=JSON.parse(s);if((Date.now()-t)/3600000<24){document.getElementById('pin-screen').style.display='none';toonDashboardNaLogin();return;}}catch(_){}}
 })();
 function pinKey(k){if(_pi.length>=4)return;_pi+=k;_pinDots();if(_pi.length===4)setTimeout(_pinVerify,80);}
 function pinDel(){_pi=_pi.slice(0,-1);_pinDots();}
@@ -624,6 +644,7 @@ async function _pinVerify(){
       const el=document.getElementById('pin-screen');
       el.style.transition='opacity .3s';el.style.opacity='0';
       setTimeout(()=>el.style.display='none',300);
+      toonDashboardNaLogin();
     }else{
       _pinFail(data.error);
     }
@@ -679,6 +700,7 @@ function naarTab(n) {
  document.querySelectorAll('.pg').forEach((p,i) => p.classList.toggle('on', i===n));
  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', i===n));
  window.scrollTo(0,0);
+ if (huidigId) { clearTimeout(saveTimer); serverSave(); }
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function(){ naarTab(parseInt(this.dataset.tab)); }));
 
@@ -988,7 +1010,7 @@ async function generatePDF() {
 
   y=tbl4([
     ['Uitvoerend partij','FSB Onderhoudsbedrijf BV','Inspecteur',gv('inspecteur')+' | '+gv('mobiel')],
-    ['Kantoor','Lulofstraat 52, Den Haag','Mobiel',gv('mobiel')],
+    ['Kantoor','Lulofstraat 52, Den Haag','Rapportnr.',gv('rapportnummer')||'-'],
     ['Object','Woning','Datum keuring',gv('datum')],
     ['Adres',gv('adres')+', '+gv('plaats'),'Opdrachtgever',gv('opdrachtgever')],
   ],y,[34,57,34,57]);
@@ -1191,7 +1213,7 @@ async function comprimeerFotos(obj, maxW=480, quality=0.60) {
 
 // EMAIL
 function openEmail(){
- document.getElementById('eml-sub').value=`FSB NTA 8025 ${gv('adres')} ${gv('datum')}`;
+ document.getElementById('eml-sub').value=`FSB NTA 8025 ${gv('rapportnummer')} ${gv('adres')} ${gv('datum')}`;
  const cL=con==='g'?'GEEN BEZWAAR':con==='e'?'ENIG BEZWAAR':con==='r'?'ERNSTIG BEZWAAR':'NIET BEPAALD';
  document.getElementById('eml-body').value=`Geachte heer/mevrouw,
 
@@ -1225,6 +1247,9 @@ async function verstuur(){
   const message = document.getElementById('eml-body').value;
 
   try {
+    // Zorg dat de laatste wijzigingen opgeslagen zijn voordat we versturen
+    if (huidigId) { clearTimeout(saveTimer); await serverSave(); }
+
     // Eerst PDF proberen te genereren
     let pdfBase64 = null;
     let fn = 'FSB_rapport.pdf';
@@ -1246,17 +1271,15 @@ async function verstuur(){
     }catch(pdfErr){console.warn('PDF generatie fout:',pdfErr);}
 
     // Verstuur via Netlify functie (met of zonder PDF)
-    let sessionToken = '';
-    try { sessionToken = JSON.parse(localStorage.getItem(_PS) || '{}').token || ''; } catch(_) {}
-
     const res = await fetch('/.netlify/functions/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
+      headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken() },
       body: JSON.stringify({
         subject: subject || 'FSB Test',
         message: message || 'Test bericht',
         pdfBase64: pdfBase64,
-        filename: fn
+        filename: fn,
+        id: huidigId
       })
     });
 
@@ -1354,32 +1377,56 @@ addRM(); document.querySelectorAll('#rm-lijst .rm-item input[type=text]')[1].val
 // 
 // OPSLAAN & HERVATTEN
 // 
-const SK = 'fsb8025v5';
-let woningen = [], actief = null;
-
-const FLD = ['adres','plaats','opdrachtgever','datum','inspecteur','mobiel',
+const FLD = ['rapportnummer','adres','plaats','opdrachtgever','datum','inspecteur','mobiel',
  'ms1','ms2','msgas','meetpunt','zc','zc2','iso','vereef','rinnw','rcirc',
  'kw_t','ww_t','ci_t','water_opm','instr1','instr2','instr3','instr4','aft_dat','con_opm'];
 
-function nieuwW() {
- return { id: Date.now().toString(), status: 'nieuw',
- bijgewerkt: new Date().toISOString(), f:{}, jnS:{}, oor:{},
- als:[], rm:[], con:null, fotos:{} };
+// Id van de inspectie die nu in het formulier open staat. Zonder id wordt er
+// nooit automatisch iets aangemaakt of opgeslagen (dat gebeurt alleen expliciet
+// via "+ Nieuwe inspectie").
+let huidigId = null;
+let dashData = [];
+
+function sessionToken() {
+ try { return JSON.parse(localStorage.getItem(_PS)||'{}').token || ''; } catch(_) { return ''; }
 }
 
-function leesFormulier() {
- const w = woningen.find(x => x.id === actief); if (!w) return;
- FLD.forEach(id => { const el=document.getElementById(id); if(el) w.f[id]=el.value; });
- w.jnS = {...jnS};
- w.oor = {...oor};
- w.als = alsList.map(a => ({...a}));
- w.rm = rmList.map(r => ({...r}));
- w.con = con;
- // Fotos: sla alleen dataUrl + label op (geen File objecten)
- w.fotos = {};
- Object.keys(fotos).forEach(k => { w.fotos[k] = fotos[k].map(f => ({d:f.d, l:f.l})); });
- w.bijgewerkt = new Date().toISOString();
- if (w.f.adres) w.status = w.con ? 'klaar' : 'open';
+// Wrapper rond fetch die het sessietoken meestuurt en bij een verlopen/ongeldige
+// sessie (401) terugvalt naar het PIN-scherm, ongeacht welke aanroep dat trof.
+async function apiFetch(url, options={}) {
+ const res = await fetch(url, { ...options, headers: { ...(options.headers||{}), 'X-Session-Token': sessionToken() } });
+ if (res.status === 401) {
+ localStorage.removeItem(_PS);
+ document.getElementById('dash').classList.remove('on');
+ document.getElementById('archief-detail').classList.remove('on');
+ const ps = document.getElementById('pin-screen');
+ ps.style.cssText=''; ps.style.display='';
+ }
+ return res;
+}
+
+function leesFormulierData() {
+ const f = {};
+ FLD.forEach(id => { const el=document.getElementById(id); if(el) f[id]=el.value; });
+ return {
+ f, jnS: {...jnS}, oor: {...oor},
+ als: alsList.map(a => ({...a})), rm: rmList.map(r => ({...r})), con,
+ fotos: Object.fromEntries(Object.keys(fotos).map(k => [k, fotos[k].map(p => ({d:p.d, l:p.l}))]))
+ };
+}
+
+// Voortgang per tab (Object/Elektra/Water/Gas/Einde) voor de dashboardweergave.
+// Elektra/Water/Gas gelden als "bezig" zodra er een oordeel is vastgelegd
+// (oor-keys ec*/ev* = elektra, wv* = water, gv* = gas, zie ELC/ELV/WTV/GSV).
+function berekenVoortgang() {
+ const heeftOor = prefixes => Object.keys(oor).some(k => prefixes.some(p => k.startsWith(p)));
+ return [
+ !!gv('adres'),
+ heeftOor(['ec','ev']),
+ heeftOor(['wv']),
+ heeftOor(['gv']),
+ !!con
+ ];
 }
 
 function vulFormulier(w) {
@@ -1439,87 +1486,155 @@ function vulFormulier(w) {
  if (sCtx) sCtx.clearRect(0,0,800,240);
 }
 
-function slaOp() {
+// Bewaart de huidige formulierstaat op de server. Debounced tijdens typen en
+// direct (geflusht) bij tabwissel/navigatie, zodat een concept nooit stale raakt.
+let saveInFlight = null;
+async function serverSave() {
+ if (!huidigId) return;
+ const payload = { id: huidigId, ...leesFormulierData(), voortgangStappen: berekenVoortgang() };
+ payload.fotos = await comprimeerFotos(payload.fotos, 480, 0.60);
  try {
- // Fotos zijn te groot voor localStorage als er veel zijn sla zonder fotos op als fallback
- const data = woningen.map(w => {
- const copy = {...w, fotos: {}};
- // Probeer fotos mee op te slaan
- Object.keys(w.fotos||{}).forEach(k => { copy.fotos[k] = w.fotos[k]; });
- return copy;
+ saveInFlight = apiFetch('/.netlify/functions/save-inspection', {
+ method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
  });
- localStorage.setItem(SK, JSON.stringify(data));
- } catch(e) {
- // Als te groot (fotos), sla op zonder fotos
- try {
- const data = woningen.map(w => ({...w, fotos:{}}));
- localStorage.setItem(SK, JSON.stringify(data));
- } catch(e2) {}
- }
+ const res = await saveInFlight;
+ if (res.ok) {
  const dot = document.getElementById('sdot');
  if (dot) { dot.classList.add('on'); setTimeout(()=>dot.classList.remove('on'), 1500); }
+ }
+ } catch(_) { /* auto-save mislukt stil; volgende trigger/tabwissel probeert opnieuw */ }
 }
 
-function laadOp() {
- try { const r=localStorage.getItem(SK); if(r) woningen=JSON.parse(r); } catch(e) { woningen=[]; }
- if (!woningen.length) { const w=nieuwW(); w.status='open'; woningen.push(w); }
- actief = woningen[0].id;
-}
-
-// Auto-save na elke input
-let svT = null;
+let saveTimer = null;
 function triggerSave() {
- clearTimeout(svT);
- svT = setTimeout(() => { leesFormulier(); slaOp(); renderDash(); }, 2000);
+ if (!huidigId) return;
+ clearTimeout(saveTimer);
+ saveTimer = setTimeout(serverSave, 2500);
 }
 document.addEventListener('input', triggerSave);
-document.addEventListener('click', () => { clearTimeout(svT); svT=setTimeout(()=>{leesFormulier();slaOp();renderDash();},3000); });
+document.addEventListener('click', triggerSave);
 
-// 
+//
 // DASHBOARD
-// 
-function openDash() { leesFormulier(); slaOp(); renderDash(); document.getElementById('dash').classList.add('on'); }
-function sluitDash() { document.getElementById('dash').classList.remove('on'); }
+//
+function toonDashFout() {
+ const msg = '<div class="dash-leeg">Kon inspecties niet laden. Controleer de verbinding.</div>';
+ document.getElementById('w-lijst-open').innerHTML = msg;
+ document.getElementById('w-lijst-klaar').innerHTML = msg;
+}
+
+async function verversDashboard() {
+ try {
+ const res = await apiFetch('/.netlify/functions/list-inspections');
+ if (!res.ok) { toonDashFout(); return; }
+ const data = await res.json();
+ dashData = data.inspecties || [];
+ renderDash();
+ } catch(_) { toonDashFout(); }
+}
+
+function toonDashboardNaLogin() {
+ document.getElementById('dash').classList.add('on');
+ verversDashboard();
+}
+
+async function openDash() {
+ clearTimeout(saveTimer);
+ if (huidigId) await serverSave();
+ document.getElementById('btn-sluitdash').style.display = huidigId ? '' : 'none';
+ document.getElementById('dash').classList.add('on');
+ verversDashboard();
+}
+function sluitDash() {
+ if (!huidigId) return;
+ document.getElementById('dash').classList.remove('on');
+}
 
 function renderDash() {
  const d = new Date().toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
  document.getElementById('d-dat').textContent = d;
- const kl = woningen.filter(w=>w.status==='klaar').length;
- const op = woningen.filter(w=>w.status==='open').length;
- document.getElementById('s-tot').textContent = woningen.length;
- document.getElementById('s-kl').textContent = kl;
- document.getElementById('s-op').textContent = op;
- document.getElementById('dash-teller').textContent = woningen.length;
+ const open = dashData.filter(w=>w.status==='concept');
+ const klaar = dashData.filter(w=>w.status==='afgerond');
+ document.getElementById('s-tot').textContent = dashData.length;
+ document.getElementById('s-op').textContent = open.length;
+ document.getElementById('s-kl').textContent = klaar.length;
+ document.getElementById('dash-teller').textContent = open.length;
 
- const ul = document.getElementById('w-lijst'); ul.innerHTML = '';
- woningen.forEach(w => {
- const isA = w.id === actief;
- const adr = (w.f&&w.f.adres) || 'Nieuw rapport';
- const dat = (w.f&&w.f.datum) || '';
- const tj = w.bijgewerkt ? new Date(w.bijgewerkt).toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'}) : '';
- const stL = w.status==='klaar'?'Afgerond': w.status==='open'?'Bezig':'Nieuw';
- const stC = w.status==='klaar'?'k': w.status==='open'?'o':'n';
- const conT = w.con==='g'?' Geen bezwaar': w.con==='e'?' Enig': w.con==='r'?' Ernstig':'';
+ const ulOpen = document.getElementById('w-lijst-open'); ulOpen.innerHTML = '';
+ if (!open.length) {
+ ulOpen.innerHTML = '<div class="dash-leeg">Geen openstaande inspecties</div>';
+ } else {
+ open.sort((a,b)=>(b.laatstGewijzigd||0)-(a.laatstGewijzigd||0)).forEach(w => {
+ const isA = w.id === huidigId;
+ const adr = w.adres || 'Nieuwe inspectie';
+ const bezig = (w.voortgangStappen||[]).some(Boolean);
+ const stL = bezig ? 'Bezig' : 'Concept';
+ const stC = bezig ? 'o' : 'n';
  const div = document.createElement('div'); div.className='wc'+(isA?' act':'');
  div.innerHTML = `
  <div class="wdot wdot-${stC}"></div>
  <div class="wi">
  <div class="wa">${adr}</div>
- <div class="wm">${dat} ${tj?'Â· '+tj:''} ${conT?'Â· '+conT:''}</div>
+ <div class="wm">${w.rapportnummer||''} Â· ${w.datum||''} Â· ${w.voortgang}</div>
  </div>
  <span class="wb wb-${stC}">${stL}</span>
- ${!isA ? `<button class="wbtn" data-lid="${w.id}">Open</button>` : '<span style="font-size:11px;color:#1a4fa0;font-weight:700;padding:4px 8px;">Actief</span>'}
- ${woningen.length>1 ? `<button class="wdel" data-did="${w.id}"></button>` : ''}`;
- div.querySelectorAll('[data-lid]').forEach(b => b.addEventListener('click', function(){ laadWoning(this.dataset.lid); }));
- div.querySelectorAll('[data-did]').forEach(b => b.addEventListener('click', function(){ verwijderWoning(this.dataset.did); }));
- ul.appendChild(div);
+ ${!isA ? `<button class="wbtn" data-lid="${w.id}">Open</button>` : '<span style="font-size:11px;color:#1a4fa0;font-weight:700;padding:4px 8px;">Actief</span>'}`;
+ div.querySelectorAll('[data-lid]').forEach(b => b.addEventListener('click', function(){ laadInspectie(this.dataset.lid); }));
+ ulOpen.appendChild(div);
  });
+ }
+
+ const ulKlaar = document.getElementById('w-lijst-klaar'); ulKlaar.innerHTML = '';
+ if (!klaar.length) {
+ ulKlaar.innerHTML = '<div class="dash-leeg">Nog geen afgeronde rapporten</div>';
+ } else {
+ klaar.sort((a,b)=>(b.verzonden||0)-(a.verzonden||0)).forEach(w => {
+ const div = document.createElement('div'); div.className='wc';
+ div.innerHTML = `
+ <div class="wdot wdot-k"></div>
+ <div class="wi">
+ <div class="wa">${w.adres||''}</div>
+ <div class="wm">${w.rapportnummer||''} Â· ${w.datum||''}</div>
+ </div>
+ <span class="wb wb-k">Afgerond</span>
+ <button class="wbtn" data-aid="${w.id}">Bekijk</button>`;
+ div.querySelectorAll('[data-aid]').forEach(b => b.addEventListener('click', function(){ toonArchiefDetail(w); }));
+ ulKlaar.appendChild(div);
+ });
+ }
 }
 
-function nieuweWoning() {
- leesFormulier(); slaOp();
- const w = nieuwW(); w.status='open'; woningen.push(w); actief=w.id;
- resetFormulier(); slaOp(); sluitDash(); naarTab(0);
+function toonArchiefDetail(w) {
+ const cL = w.con==='g'?'Geen bezwaar': w.con==='e'?'Enig bezwaar': w.con==='r'?'Ernstig bezwaar':'Onbekend';
+ const verz = w.verzonden ? new Date(w.verzonden).toLocaleString('nl-NL') : '-';
+ document.getElementById('archief-detail-inhoud').innerHTML = `
+ <div class="arch-rij"><span class="lb2">Rapportnummer</span><span class="wa">${w.rapportnummer||''}</span></div>
+ <div class="arch-rij"><span class="lb2">Adres</span><span class="wa">${w.adres||''}, ${w.plaats||''}</span></div>
+ <div class="arch-rij"><span class="lb2">Datum keuring</span><span class="wa">${w.datum||''}</span></div>
+ <div class="arch-rij"><span class="lb2">Opdrachtgever</span><span class="wa">${w.opdrachtgever||''}</span></div>
+ <div class="arch-rij"><span class="lb2">Inspecteur</span><span class="wa">${w.inspecteur||''}</span></div>
+ <div class="arch-rij"><span class="lb2">Eindoordeel</span><span class="wa">${cL}</span></div>
+ <div class="arch-rij"><span class="lb2">Verzonden</span><span class="wa">${verz}</span></div>
+ `;
+ document.getElementById('archief-detail').classList.add('on');
+}
+document.getElementById('btn-sluitarchief').addEventListener('click', () => document.getElementById('archief-detail').classList.remove('on'));
+
+async function nieuweInspectie() {
+ clearTimeout(saveTimer);
+ try {
+ const res = await apiFetch('/.netlify/functions/save-inspection', {
+ method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({})
+ });
+ if (!res.ok) { alert('Kon geen nieuwe inspectie aanmaken.'); return; }
+ const data = await res.json();
+ huidigId = data.id;
+ resetFormulier();
+ document.getElementById('rapportnummer').value = data.rapportnummer;
+ await serverSave();
+ document.getElementById('dash').classList.remove('on');
+ naarTab(0);
+ } catch(_) { alert('Kon geen nieuwe inspectie aanmaken (netwerkfout).'); }
 }
 
 function resetFormulier() {
@@ -1554,37 +1669,24 @@ function resetFormulier() {
  });
 }
 
-function laadWoning(id) {
- leesFormulier(); slaOp();
- actief = id;
- vulFormulier(woningen.find(x=>x.id===id));
- slaOp(); sluitDash(); naarTab(0);
-}
-
-function verwijderWoning(id) {
- if (!confirm('Woning verwijderen? Dit kan niet ongedaan worden.')) return;
- woningen = woningen.filter(w=>w.id!==id);
- if (!woningen.length) { const w=nieuwW(); w.status='open'; woningen.push(w); }
- if (actief===id) { actief=woningen[0].id; vulFormulier(woningen[0]); }
- slaOp(); renderDash();
+async function laadInspectie(id) {
+ clearTimeout(saveTimer);
+ if (huidigId) await serverSave();
+ try {
+ const res = await apiFetch('/.netlify/functions/get-inspection?id=' + encodeURIComponent(id));
+ if (!res.ok) { alert('Kon inspectie niet laden.'); return; }
+ const rec = await res.json();
+ huidigId = rec.id;
+ vulFormulier(rec);
+ document.getElementById('dash').classList.remove('on');
+ naarTab(0);
+ } catch(_) { alert('Kon inspectie niet laden (netwerkfout).'); }
 }
 
 // Dashboard knoppen
 document.getElementById('btn-dash').addEventListener('click', openDash);
 document.getElementById('btn-sluitdash').addEventListener('click', sluitDash);
-document.getElementById('btn-nieuw').addEventListener('click', nieuweWoning);
-
-// 
-// INIT MET OPGESLAGEN DATA
-// 
-laadOp();
-const actW = woningen.find(x=>x.id===actief);
-if (actW && actW.f && Object.keys(actW.f).length> 0) {
- vulFormulier(actW);
-} else {
- // Eerste keer: standaard waarden al gezet hierboven
-}
-renderDash();
+document.getElementById('btn-nieuw').addEventListener('click', nieuweInspectie);
 </script>
 </body>
 </html>
