@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "FSB NTA 8025 Rapportage App",
   "dependencies": {
-    "nodemailer": "^6.9.7"
+    "nodemailer": "^6.9.7",
+    "@netlify/blobs": "^7.0.0"
   }
 }

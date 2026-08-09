@@ -1,9 +1,7 @@
 [build]
   functions = "netlify/functions"
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Headers = "Content-Type"
-    Access-Control-Allow-Methods = "POST, GET, OPTIONS"
+# Let op: de Access-Control-Allow-Origin header wordt nu per-verzoek dynamisch
+# bepaald in netlify/functions/send-email.js (op basis van ALLOWED_ORIGINS env var),
+# in plaats van hier globaal op '*' gezet te worden. Zo kan alleen jouw eigen
+# app-domein de mailfunctie daadwerkelijk aanroepen.
