@@ -10,6 +10,7 @@ const { handler } = require('./netlify/functions/send-email.js');
 
 const event = {
   httpMethod: 'POST',
+  headers: { origin: 'http://localhost:8888' },
   body: JSON.stringify({
     subject: 'TEST FSB NTA 8025 - SMTP check',
     message: 'Dit is een testbericht vanuit de FSB app.\n\nSMTP zonder nodemailer - werkt dit?',

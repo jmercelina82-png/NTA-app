@@ -595,9 +595,8 @@ textarea { resize: vertical; min-height: 70px; }
 
 <script>
 // ============ PIN AUTHENTICATIE ============
-// Aanpasbaar: verander APP_PIN om een andere pincode in te stellen
-const APP_PIN = '8025';
-const _PS = 'fsb_pin_ok';
+// De pincode wordt server-side gecontroleerd door de verify-pin functie (env var APP_PIN).
+const _PS = 'fsb_session';
 let _pi = '';
 (function _pinInit(){
   const s = localStorage.getItem(_PS);
@@ -606,16 +605,30 @@ let _pi = '';
 function pinKey(k){if(_pi.length>=4)return;_pi+=k;_pinDots();if(_pi.length===4)setTimeout(_pinVerify,80);}
 function pinDel(){_pi=_pi.slice(0,-1);_pinDots();}
 function _pinDots(){document.querySelectorAll('.pin-dot').forEach((d,i)=>d.classList.toggle('on',i<_pi.length));}
-function _pinVerify(){
-  if(_pi===APP_PIN){
-    localStorage.setItem(_PS,JSON.stringify({t:Date.now()}));
-    const el=document.getElementById('pin-screen');
-    el.style.transition='opacity .3s';el.style.opacity='0';
-    setTimeout(()=>el.style.display='none',300);
-  }else{
-    document.getElementById('pin-err').textContent='Verkeerde pincode, probeer opnieuw';
-    const d=document.getElementById('pin-dots');d.classList.add('pin-shake');
-    setTimeout(()=>{d.classList.remove('pin-shake');_pi='';_pinDots();document.getElementById('pin-err').textContent='';},500);
+function _pinFail(msg){
+  document.getElementById('pin-err').textContent=msg||'Verkeerde pincode, probeer opnieuw';
+  const d=document.getElementById('pin-dots');d.classList.add('pin-shake');
+  setTimeout(()=>{d.classList.remove('pin-shake');_pi='';_pinDots();document.getElementById('pin-err').textContent='';},500);
+}
+async function _pinVerify(){
+  const attempt=_pi;
+  try{
+    const res=await fetch('/.netlify/functions/verify-pin',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({pin:attempt})
+    });
+    const data=await res.json().catch(()=>({}));
+    if(res.ok&&data.success&&data.token){
+      localStorage.setItem(_PS,JSON.stringify({token:data.token,t:Date.now()}));
+      const el=document.getElementById('pin-screen');
+      el.style.transition='opacity .3s';el.style.opacity='0';
+      setTimeout(()=>el.style.display='none',300);
+    }else{
+      _pinFail(data.error);
+    }
+  }catch(err){
+    _pinFail('Verbindingsfout, probeer opnieuw');
   }
 }
 // ============ STATE
@@ -1233,9 +1246,12 @@ async function verstuur(){
     }catch(pdfErr){console.warn('PDF generatie fout:',pdfErr);}
 
     // Verstuur via Netlify functie (met of zonder PDF)
+    let sessionToken = '';
+    try { sessionToken = JSON.parse(localStorage.getItem(_PS) || '{}').token || ''; } catch(_) {}
+
     const res = await fetch('/.netlify/functions/send-email', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Session-Token': sessionToken },
       body: JSON.stringify({
         subject: subject || 'FSB Test',
         message: message || 'Test bericht',
@@ -1254,6 +1270,10 @@ async function verstuur(){
       btn.textContent = 'Verzonden!';
       setTimeout(()=>{ sluitEmail(); btn.disabled=false; btn.textContent='Email + PDF'; }, 4000);
     } else {
+      if (res.status === 401) {
+        localStorage.removeItem(_PS);
+        document.getElementById('pin-screen').style.cssText = '';
+      }
       const detail = data.error || (text ? text.slice(0, 150) : '');
       throw new Error(`Server fout ${res.status}${detail ? ': ' + detail : ''}`);
     }
