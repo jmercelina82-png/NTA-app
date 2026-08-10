@@ -4,7 +4,8 @@ const {
   isAllowedOrigin,
   getClientIp,
   checkRateLimit,
-  hasValidSession
+  hasValidSession,
+  connectBlobs
 } = require('./lib/_shared');
 const {
   getInspectieStore,
@@ -37,6 +38,7 @@ function schoonFormData(body) {
 }
 
 exports.handler = async function (event) {
+  connectBlobs(event);
   const origin = event.headers.origin || event.headers.Origin || '';
   const headers = corsHeaders(origin, 'Content-Type, X-Session-Token');
 

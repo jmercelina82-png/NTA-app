@@ -1,5 +1,23 @@
 const crypto = require('crypto');
-const { getStore } = require('@netlify/blobs');
+const { getStore, connectLambda } = require('@netlify/blobs');
+
+// Onze functions gebruiken nog de klassieke exports.handler(event)-signatuur
+// ("Lambda compatibility mode"). In die modus injecteert Netlify de
+// Blobs-omgeving niet automatisch als env var; die zit als event.blobs op het
+// Lambda-event en moet expliciet ontsloten worden via connectLambda(event),
+// als allereerste statement in de handler, voordat enige getStore()-aanroep
+// (ook indirect, via checkRateLimit) plaatsvindt. Zonder dit gooit getStore()
+// een MissingBlobsEnvironmentError. Defensief in een try/catch: lokaal (of in
+// een test) waar event.blobs ontbreekt mag dit de aanroep niet laten crashen -
+// een ontbrekende Blobs-omgeving leidt dan verderop tot dezelfde nette
+// fail-open (rate limit) of 500 (echte opslag) als voorheen.
+function connectBlobs(event) {
+  try {
+    connectLambda(event);
+  } catch (_) {
+    // Geen (geldige) event.blobs beschikbaar - Blobs blijft ongeconfigureerd.
+  }
+}
 
 // ALLOWED_ORIGINS: comma-gescheiden lijst met domeinen die de functies mogen aanroepen.
 // Instellen in Netlify: Site settings -> Environment variables -> ALLOWED_ORIGINS
@@ -125,5 +143,6 @@ module.exports = {
   createSessionToken,
   verifySessionToken,
   safeCompare,
-  hasValidSession
+  hasValidSession,
+  connectBlobs
 };

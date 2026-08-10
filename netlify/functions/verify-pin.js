@@ -4,13 +4,15 @@ const {
   getClientIp,
   checkRateLimit,
   createSessionToken,
-  safeCompare
+  safeCompare,
+  connectBlobs
 } = require('./lib/_shared');
 
 const RATE_LIMIT_MAX = 8;              // max aantal inlogpogingen...
 const RATE_LIMIT_WINDOW_MS = 900000;   // ...per 15 minuten per IP
 
 exports.handler = async function(event) {
+  connectBlobs(event);
   const origin = event.headers.origin || event.headers.Origin || '';
   const headers = corsHeaders(origin);
 

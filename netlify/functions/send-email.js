@@ -4,7 +4,8 @@ const {
   isAllowedOrigin,
   getClientIp,
   checkRateLimit,
-  hasValidSession
+  hasValidSession,
+  connectBlobs
 } = require('./lib/_shared');
 const { getInspectieStore, isValidId, inspectieKey } = require('./lib/inspecties');
 
@@ -18,6 +19,7 @@ const RATE_LIMIT_MAX = 5;           // max aantal verzoeken...
 const RATE_LIMIT_WINDOW_MS = 3600000; // ...per uur per IP
 
 exports.handler = async function(event) {
+  connectBlobs(event);
   const origin = event.headers.origin || event.headers.Origin || '';
   const headers = corsHeaders(origin, 'Content-Type, X-Session-Token');
 
