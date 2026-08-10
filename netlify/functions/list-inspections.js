@@ -76,6 +76,13 @@ exports.handler = async function (event) {
     return { statusCode: 200, headers, body: JSON.stringify({ inspecties }) };
   } catch (err) {
     console.error('list-inspections fout:', err.message);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Kon inspecties niet ophalen' }) };
+    return { statusCode: 500, headers, body: JSON.stringify({
+      error: 'Kon inspecties niet ophalen',
+      debug: err.message,
+      stack: err.stack,
+      hasEventBlobs: !!event.blobs,
+      eventBlobsLen: (event.blobs || '').length,
+      headerKeys: Object.keys(event.headers || {})
+    }) };
   }
 };
