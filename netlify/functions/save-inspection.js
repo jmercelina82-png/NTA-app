@@ -126,6 +126,6 @@ exports.handler = async function (event) {
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: rec.id, rapportnummer, laatstGewijzigd: now }) };
   } catch (err) {
     console.error('save-inspection fout:', err.message);
-    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Kon inspectie niet opslaan', debug: err.message, stack: err.stack }) };
+    return { statusCode: 500, headers, body: JSON.stringify({ error: 'Kon inspectie niet opslaan' }) };
   }
 };

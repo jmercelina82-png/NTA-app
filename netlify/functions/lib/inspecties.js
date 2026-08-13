@@ -22,11 +22,18 @@ function inspectieKey(id) {
 // Atomisch volgnummer toekennen via compare-and-swap (onlyIfMatch/onlyIfNew),
 // zodat twee gelijktijdige "nieuwe inspectie"-verzoeken nooit hetzelfde nummer
 // krijgen. Bij een conflict (iemand anders was net iets sneller) lezen we de
-// nieuwe waarde opnieuw en proberen we het nogmaals.
+// nieuwe waarde opnieuw en proberen we het nogmaals. De atomiciteit komt
+// volledig van de conditionele write (onlyIfMatch/onlyIfNew) - de lees hoeft
+// dus geen 'strong' consistency te zijn (die vereist een uncachedEdgeURL die
+// niet beschikbaar is in Lambda compatibility mode / via connectLambda). Een
+// gedateerde lees leidt in het ergste geval alleen tot een extra conflict-
+// retry, nooit tot een dubbel nummer.
 async function claimRapportnummer(store, jaar = new Date().getFullYear()) {
   const key = `counter:rapportnummer:${jaar}`;
-  for (let poging = 0; poging < 20; poging++) {
-    const entry = await store.getWithMetadata(key, { type: 'text', consistency: 'strong' });
+  // In het slechtste geval heeft de laatste van N gelijktijdige aanvragen N-1
+  // retries nodig (elke retry is maar een lees + conditionele write, dus goedkoop).
+  for (let poging = 0; poging < 50; poging++) {
+    const entry = await store.getWithMetadata(key, { type: 'text' });
     const huidig = entry && entry.data ? parseInt(entry.data, 10) : 0;
     const volgende = (Number.isFinite(huidig) ? huidig : 0) + 1;
     const writeOptions = entry && entry.etag ? { onlyIfMatch: entry.etag } : { onlyIfNew: true };
