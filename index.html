@@ -300,7 +300,10 @@ textarea { resize: vertical; min-height: 70px; background: var(--input-bg); }
  </div>
  <div style="display:flex;align-items:center;gap:8px;">
  <span class="save-dot" id="sdot"></span>
- <button class="hdr-btn" id="btn-dash"><span id="dash-teller">0</span></button>
+ <button class="hdr-btn" id="btn-dash" title="Terug naar dashboard" style="display:flex;align-items:center;gap:6px;">
+ <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
+ <span id="dash-teller">0</span>
+ </button>
  <button class="hdr-btn" id="btn-pdf-hdr"> PDF</button>
  </div>
 </div>
@@ -632,7 +635,10 @@ textarea { resize: vertical; min-height: 70px; background: var(--input-bg); }
     <label class="lb">Bericht</label>
     <textarea id="eml-body" style="min-height:80px;margin-bottom:10px;"></textarea>
     <div id="eml-st" style="display:none;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;line-height:1.5;"></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+    <div id="eml-na-verzenden" style="display:none;">
+      <button class="btn-blauw" id="btn-na-verzenden-dash" style="width:100%;">Naar dashboard</button>
+    </div>
+    <div id="eml-acties" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
       <button class="btn-wit" onclick="sluitEmail()">Annuleren</button>
       <button style="background:#25D366;color:white;border:none;padding:12px 18px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;flex:1;" onclick="verstuurWhatsApp()">WhatsApp</button>
       <button class="btn-groen" id="btn-dosend" onclick="verstuur()" style="flex:1;">Email + PDF</button>
@@ -1270,9 +1276,18 @@ FSB Onderhoudsbedrijf BV`;
  document.getElementById('eml-st').style.display='none';
  document.getElementById('btn-dosend').disabled=false;
  document.getElementById('btn-dosend').textContent=' Verstuur';
+ document.getElementById('eml-na-verzenden').style.display='none';
+ document.getElementById('eml-acties').style.display='flex';
  document.getElementById('eml').classList.add('on');
 }
 function sluitEmail(){ document.getElementById('eml').classList.remove('on'); }
+function naarDashboardNaVerzenden(){
+ sluitEmail();
+ document.getElementById('btn-sluitdash').style.display = huidigId ? '' : 'none';
+ document.getElementById('dash').classList.add('on');
+ verversDashboard();
+}
+document.getElementById('btn-na-verzenden-dash').addEventListener('click', naarDashboardNaVerzenden);
 async function verstuur(){
   const btn = document.getElementById('btn-dosend');
   const st  = document.getElementById('eml-st');
@@ -1327,9 +1342,10 @@ async function verstuur(){
 
     if (res.ok && data.success) {
       st.style.cssText = 'display:block;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;background:#e8f5e9;color:#1a7a3d;font-weight:700;';
-      st.textContent = 'Email verzonden naar Staedion + CC naar jou!';
+      st.textContent = 'Email verzonden naar Staedion + CC naar jou! De inspectie staat nu bij Afgerond.';
       btn.textContent = 'Verzonden!';
-      setTimeout(()=>{ sluitEmail(); btn.disabled=false; btn.textContent='Email + PDF'; }, 4000);
+      document.getElementById('eml-acties').style.display = 'none';
+      document.getElementById('eml-na-verzenden').style.display = 'block';
     } else {
       if (res.status === 401) {
         localStorage.removeItem(_PS);
