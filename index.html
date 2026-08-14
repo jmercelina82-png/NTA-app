@@ -1632,7 +1632,7 @@ function renderDash() {
  <div class="wm">${w.rapportnummer||''} · ${w.datum||''} · ${w.voortgang}</div>
  </div>
  <span class="wb wb-${stC}">${stL}</span>
- ${!isA ? `<button class="wbtn" data-lid="${w.id}">Open</button>` : '<span style="font-size:11px;color:#1a4fa0;font-weight:700;padding:4px 8px;">Actief</span>'}`;
+ <button class="wbtn" data-lid="${w.id}">${isA ? 'Verder' : 'Open'}</button>`;
  div.querySelectorAll('[data-lid]').forEach(b => b.addEventListener('click', function(){ laadInspectie(this.dataset.lid); }));
  ulOpen.appendChild(div);
  });
