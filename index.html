@@ -1669,10 +1669,40 @@ function toonArchiefDetail(w) {
  <div class="arch-rij"><span class="lb2">Inspecteur</span><span class="wa">${w.inspecteur||''}</span></div>
  <div class="arch-rij"><span class="lb2">Eindoordeel</span><span class="wa">${cL}</span></div>
  <div class="arch-rij"><span class="lb2">Verzonden</span><span class="wa">${verz}</span></div>
+ <div style="display:flex;gap:8px;margin-top:16px;">
+ <button class="btn-wit" id="arch-btn-pdf" style="flex:1;">PDF bekijken</button>
+ <button class="btn-blauw" id="arch-btn-resend" style="flex:1;">Opnieuw versturen</button>
+ </div>
  `;
+ document.getElementById('arch-btn-pdf').addEventListener('click', () => archiefBekijkPdf(w.id));
+ document.getElementById('arch-btn-resend').addEventListener('click', () => archiefOpnieuwVersturen(w.id));
  document.getElementById('archief-detail').classList.add('on');
 }
 document.getElementById('btn-sluitarchief').addEventListener('click', () => document.getElementById('archief-detail').classList.remove('on'));
+
+// Een al verzonden rapport laden in de (verborgen) formulierstaat, zonder de
+// bewerkbare 5-stappen-vorm te tonen - we springen direct door naar de
+// PDF- of email-weergave. Er wordt niets opgeslagen (save-inspection
+// weigert wijzigingen aan afgeronde rapporten toch al met een 409).
+async function laadArchiefInFormulier(id) {
+ const res = await apiFetch('/.netlify/functions/get-inspection?id=' + encodeURIComponent(id));
+ if (!res.ok) { alert('Kon rapport niet laden.'); return false; }
+ const rec = await res.json();
+ huidigId = rec.id;
+ vulFormulier(rec);
+ document.getElementById('archief-detail').classList.remove('on');
+ return true;
+}
+async function archiefBekijkPdf(id) {
+ try {
+ if (await laadArchiefInFormulier(id)) openPDF();
+ } catch(_) { alert('Kon rapport niet laden (netwerkfout).'); }
+}
+async function archiefOpnieuwVersturen(id) {
+ try {
+ if (await laadArchiefInFormulier(id)) openEmail();
+ } catch(_) { alert('Kon rapport niet laden (netwerkfout).'); }
+}
 
 async function nieuweInspectie() {
  clearTimeout(saveTimer);

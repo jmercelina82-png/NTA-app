@@ -108,14 +108,17 @@ exports.handler = async function(event) {
 
     await transporter.sendMail(mailOptions);
 
-    // Best effort: koppel het verzonden rapport aan de inspectie en zet 'm op
-    // afgerond. Een fout hier mag de succesvolle verzending niet ongedaan maken.
+    // Best effort: koppel het verzonden rapport aan de inspectie, zet 'm op
+    // afgerond en werk de verzonden-datum bij - ook bij een herhaalde
+    // verzending (opnieuw versturen vanuit het archief), zodat die altijd de
+    // laatste keer verzenden weergeeft. Een fout hier mag de succesvolle
+    // verzending niet ongedaan maken.
     if (isValidId(id)) {
       try {
         const store = getInspectieStore();
         const key = inspectieKey(id);
         const rec = await store.get(key, { type: 'json' });
-        if (rec && rec.status !== 'afgerond') {
+        if (rec) {
           rec.status = 'afgerond';
           rec.verzonden = Date.now();
           rec.laatstGewijzigd = Date.now();
