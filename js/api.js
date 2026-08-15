@@ -37,6 +37,12 @@ export async function saveInspectionRequest(payload) {
  });
 }
 
+export async function deleteInspectionRequest(id) {
+ return apiFetch('/.netlify/functions/delete-inspection', {
+ method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({id})
+ });
+}
+
 export async function ocrMeterRequest(payload) {
  return apiFetch('/.netlify/functions/ocr-meter', {
  method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)

@@ -4,9 +4,10 @@ import { huidigId, setHuidigId } from './state.js';
 import { cancelPendingSave, serverSave } from './autosave.js';
 import { naarTab, resetFormulier, vulFormulier } from './form.js';
 import { openPDF, openEmail } from './pdf.js';
-import { listInspectionsRequest, getInspectionRequest, saveInspectionRequest } from './api.js';
+import { listInspectionsRequest, getInspectionRequest, saveInspectionRequest, deleteInspectionRequest } from './api.js';
 
 let dashData = [];
+let alleFilter = 'alle'; // 'alle' | 'concept' | 'afgerond' - status-filter van het "Alle inspecties"-scherm
 
 function toonDashFout() {
  const msg = '<div class="dash-leeg">Kon inspecties niet laden. Controleer de verbinding.</div>';
@@ -21,6 +22,7 @@ export async function verversDashboard() {
  const data = await res.json();
  dashData = data.inspecties || [];
  renderDash();
+ renderAlleLijst();
  } catch(_) { toonDashFout(); }
 }
 
@@ -69,8 +71,10 @@ function renderDash() {
  <div class="wm">${w.rapportnummer||''} · ${w.datum||''} · ${w.voortgang}</div>
  </div>
  <span class="wb wb-${stC}">${stL}</span>
- <button class="wbtn" data-lid="${w.id}">${isA ? 'Verder' : 'Open'}</button>`;
+ <button class="wbtn" data-lid="${w.id}">${isA ? 'Verder' : 'Open'}</button>
+ <button class="wdel" data-did="${w.id}" title="Concept verwijderen">×</button>`;
  div.querySelectorAll('[data-lid]').forEach(b => b.addEventListener('click', function(){ laadInspectie(this.dataset.lid); }));
+ div.querySelectorAll('[data-did]').forEach(b => b.addEventListener('click', function(){ verwijderInspectie(this.dataset.did, adr); }));
  ulOpen.appendChild(div);
  });
  }
@@ -93,6 +97,23 @@ function renderDash() {
  ulKlaar.appendChild(div);
  });
  }
+}
+
+// Alleen concepten zijn verwijderbaar (delete-inspection.js weigert een
+// afgerond rapport toch al met een 409) - een verzonden rapport blijft
+// bewaard als auditspoor.
+export async function verwijderInspectie(id, adres) {
+ if (!confirm(`Concept "${adres || 'Nieuwe inspectie'}" verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+ try {
+ const res = await deleteInspectionRequest(id);
+ if (!res.ok) {
+ const d = await res.json().catch(()=>({}));
+ alert(d.error || 'Kon concept niet verwijderen.');
+ return;
+ }
+ if (huidigId === id) setHuidigId(null);
+ verversDashboard();
+ } catch(_) { alert('Kon concept niet verwijderen (netwerkfout).'); }
 }
 
 export function toonArchiefDetail(w) {
@@ -174,3 +195,72 @@ export async function laadInspectie(id) {
 document.getElementById('btn-dash').addEventListener('click', openDash);
 document.getElementById('btn-sluitdash').addEventListener('click', sluitDash);
 document.getElementById('btn-nieuw').addEventListener('click', nieuweInspectie);
+
+// ALLE INSPECTIES - doorzoekbaar overzicht (concepten + afgerond samen),
+// bereikbaar via de 3 statistiek-tegels boven in het dashboard.
+function renderAlleLijst() {
+ const cont = document.getElementById('alle-lijst');
+ if (!cont) return;
+ const zoekEl = document.getElementById('alle-zoek');
+ const zoek = (zoekEl ? zoekEl.value : '').trim().toLowerCase();
+
+ let items = dashData;
+ if (alleFilter === 'concept') items = items.filter(w => w.status === 'concept');
+ else if (alleFilter === 'afgerond') items = items.filter(w => w.status === 'afgerond');
+ if (zoek) items = items.filter(w => (w.adres || '').toLowerCase().includes(zoek));
+ items = items.slice().sort((a, b) => (b.laatstGewijzigd || b.verzonden || 0) - (a.laatstGewijzigd || a.verzonden || 0));
+
+ if (!items.length) {
+ cont.innerHTML = '<div class="dash-leeg">Niets gevonden</div>';
+ return;
+ }
+ cont.innerHTML = '';
+ items.forEach(w => {
+ const isAfgerond = w.status === 'afgerond';
+ const isA = w.id === huidigId;
+ const adr = w.adres || 'Nieuwe inspectie';
+ const bezig = (w.voortgangStappen || []).some(Boolean);
+ const stL = isAfgerond ? 'Afgerond' : (bezig ? 'Bezig' : 'Concept');
+ const stC = isAfgerond ? 'k' : (bezig ? 'o' : 'n');
+ const div = document.createElement('div'); div.className = 'wc' + (isA ? ' act' : '');
+ div.innerHTML = `
+ <div class="wdot wdot-${stC}"></div>
+ <div class="wi">
+ <div class="wa">${adr}</div>
+ <div class="wm">${w.rapportnummer || ''} · ${w.datum || ''}${isAfgerond ? '' : ' · ' + w.voortgang}</div>
+ </div>
+ <span class="wb wb-${stC}">${stL}</span>
+ <button class="wbtn" data-open>${isAfgerond ? 'Bekijk' : (isA ? 'Verder' : 'Open')}</button>
+ ${isAfgerond ? '' : `<button class="wdel" data-did title="Concept verwijderen">×</button>`}`;
+ div.querySelector('[data-open]').addEventListener('click', () => {
+ if (isAfgerond) { toonArchiefDetail(w); }
+ else { laadInspectie(w.id); sluitAlleInspecties(); }
+ });
+ const delBtn = div.querySelector('[data-did]');
+ if (delBtn) delBtn.addEventListener('click', () => verwijderInspectie(w.id, adr));
+ cont.appendChild(div);
+ });
+}
+
+export function openAlleInspecties(filter) {
+ alleFilter = filter;
+ document.querySelectorAll('#alle-filters [data-filter]').forEach(b => b.classList.toggle('on', b.dataset.filter === filter));
+ const zoekEl = document.getElementById('alle-zoek');
+ if (zoekEl) zoekEl.value = '';
+ renderAlleLijst();
+ document.getElementById('alle-inspecties').classList.add('on');
+}
+export function sluitAlleInspecties() {
+ document.getElementById('alle-inspecties').classList.remove('on');
+}
+
+document.getElementById('dstat-tot').addEventListener('click', () => openAlleInspecties('alle'));
+document.getElementById('dstat-op').addEventListener('click', () => openAlleInspecties('concept'));
+document.getElementById('dstat-kl').addEventListener('click', () => openAlleInspecties('afgerond'));
+document.getElementById('btn-sluitalle').addEventListener('click', sluitAlleInspecties);
+document.getElementById('alle-zoek').addEventListener('input', renderAlleLijst);
+document.querySelectorAll('#alle-filters [data-filter]').forEach(b => b.addEventListener('click', function () {
+ alleFilter = this.dataset.filter;
+ document.querySelectorAll('#alle-filters [data-filter]').forEach(x => x.classList.toggle('on', x === this));
+ renderAlleLijst();
+}));

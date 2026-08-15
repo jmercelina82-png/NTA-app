@@ -1,7 +1,7 @@
 // jsPDF-generatielogica, plus het versturen van het rapport (e-mail/WhatsApp) -
 // die twee horen inhoudelijk samen (de PDF wordt als bijlage meegestuurd) en
 // stonden ook in de oorspronkelijke index.html direct na elkaar.
-import { jnS, oor, con, fotos, alsList, rmList, ELC, ELV, WTV, GSV, getSign } from './form.js';
+import { jnS, oor, con, fotos, alsList, rmList, ELC, ELV, WTV, GSV, getSign, valideerVoorVersturen } from './form.js';
 import { gv, LOGO, comprimeerFotos } from './utils.js';
 import { huidigId } from './state.js';
 import { _PS } from './auth.js';
@@ -37,6 +37,27 @@ export async function generatePDF() {
   const iDim=(u,mw,mh)=>{
     try{const p=doc.getImageProperties(u);const ar=p.width/p.height;let w=mw,h=mw/ar;if(h>mh){h=mh;w=mh*ar;}return{w,h};}
     catch(_){return{w:mw,h:mh};}
+  };
+
+  // jsPDF's ingebouwde 'helvetica'-font gebruikt WinAnsiEncoding en kent geen
+  // Griekse tekens (Ω) - het losstaande ingebouwde 'symbol'-font (Adobe
+  // Symbol-encoding) heeft Omega wel, op dezelfde toetsplek als de Latijnse
+  // hoofdletter 'W'. txt() tekent daarom Ω apart in dat font en de rest van
+  // de string in het actieve font, zodat tbl()/tbl4() verder gewoon met
+  // doc.text()-achtige aanroepen kunnen blijven werken.
+  const txt=(s,x,y)=>{
+    if(!s.includes('Ω')){doc.text(s,x,y);return;}
+    const font=doc.getFont();
+    let cx=x;
+    for(const ch of s){
+      if(ch==='Ω'){
+        doc.setFont('symbol','normal');doc.text('W',cx,y);
+        cx+=doc.getTextWidth('W');
+        doc.setFont(font.fontName,font.fontStyle);
+      }else{
+        doc.text(ch,cx,y);cx+=doc.getTextWidth(ch);
+      }
+    }
   };
 
   // Header
@@ -108,7 +129,7 @@ export async function generatePDF() {
         else{doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);}
         doc.setFontSize(7.5);
         if(bdgLast&&last&&isO){oBdg(String(cell),x,y+4.5,cws[ci]);}
-        else{const s=String(cell||'');const mc=Math.floor(cws[ci]/1.85);doc.text(s.length>mc?s.slice(0,mc-2)+'..':s,x+2,y+4.5);}
+        else{const s=String(cell||'');const mc=Math.floor(cws[ci]/1.85);txt(s.length>mc?s.slice(0,mc-2)+'..':s,x+2,y+4.5);}
         doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.rect(x,y,cws[ci],RH);
         x+=cws[ci];
       });
@@ -127,7 +148,7 @@ export async function generatePDF() {
         const lbl=ci===0||ci===2;
         if(lbl){doc.setFillColor(245,247,255);doc.rect(x,y,cws[ci],RH,'F');doc.setFont('helvetica','bold');doc.setTextColor(...BL);}
         else{doc.setFont('helvetica','normal');doc.setTextColor(30,30,30);}
-        doc.setFontSize(7.5);doc.text(String(cell||''),x+2,y+4.5);
+        doc.setFontSize(7.5);txt(String(cell||''),x+2,y+4.5);
         doc.setDrawColor(220,220,220);doc.setLineWidth(0.2);doc.rect(x,y,cws[ci],RH);
         x+=cws[ci];
       });
@@ -219,9 +240,9 @@ export async function generatePDF() {
 
   y=sec('Meterstanden',y);
   y=tbl(['Omschrijving','Waarde'],[
-    ['Meterstand 1 â€” Laag Tarief',gv('ms1')||'-'],
-    ['Meterstand 2 â€” Hoog Tarief',gv('ms2')||'-'],
-    ['Meterstand Gas (mÂ³)',gv('msgas')||'-'],
+    ['Meterstand 1 — Laag Tarief',gv('ms1')||'-'],
+    ['Meterstand 2 — Hoog Tarief',gv('ms2')||'-'],
+    ['Meterstand Gas (m³)',gv('msgas')||'-'],
   ],y,[130,52]);
   y=fotorij(['ms1','ms2','msgas'],y,30);
 
@@ -233,18 +254,18 @@ export async function generatePDF() {
   ],y,[52,24,58,48]);
   y=fotorij(['meterkast'],y,45);
 
-  y=sec('1. Elektrische installatie â€” Technische controles',y);
+  y=sec('1. Elektrische installatie — Technische controles',y);
   y=tbl(['Controlepunt','Oordeel'],ELC.map(it=>[it.t+(it.s?' ('+it.s+')':''),oor[it.k]||'']),y,[148,34],true);
 
   y=sec('Meetwaarden elektrische installatie',y);
   y=tbl(['Parameter','Waarde'],[
     ['Punt van meting',gv('meetpunt')||'-'],
-    ['Rinwendig (Î©)',gv('rinnw')||'-'],
-    ['Rcircuit (Î©)',gv('rcirc')||'-'],
-    ['Zc (Î©)',gv('zc')||'-'],
-    ['Zc fase-beveiliging (Î©)',gv('zc2')||'-'],
-    ['Isolatieweerstand (MÎ©)',gv('iso')||'-'],
-    ['Weerstand bescherming (Î©)',gv('vereef')||'-'],
+    ['Rinwendig (Ω)',gv('rinnw')||'-'],
+    ['Rcircuit (Ω)',gv('rcirc')||'-'],
+    ['Zc (Ω)',gv('zc')||'-'],
+    ['Zc fase-beveiliging (Ω)',gv('zc2')||'-'],
+    ['Isolatieweerstand (MΩ)',gv('iso')||'-'],
+    ['Weerstand bescherming (Ω)',gv('vereef')||'-'],
   ],y,[130,52]);
 
   y=sec('Aardlekschakelaar(s)',y);
@@ -289,9 +310,9 @@ export async function generatePDF() {
   y=tbl(['Aspect','Oordeel'],WTV.map(it=>[it.t,oor[it.k]||'']),y,[148,34],true);
   y=sec('Temperatuurmetingen & water',y);
   y=tbl4([
-    ['Koudwater (Â°C)',gv('kw_t')||'-','Circulerend systeem',jnS['circ']||'-'],
-    ['Warmwater (Â°C)',gv('ww_t')||'-','Voorraadvat',jnS['vv']||'-'],
-    ['Circulatie (Â°C)',gv('ci_t')||'-','Opmerking',gv('water_opm')||'-'],
+    ['Koudwater (°C)',gv('kw_t')||'-','Circulerend systeem',jnS['circ']||'-'],
+    ['Warmwater (°C)',gv('ww_t')||'-','Voorraadvat',jnS['vv']||'-'],
+    ['Circulatie (°C)',gv('ci_t')||'-','Opmerking',gv('water_opm')||'-'],
   ],y,[52,24,58,48]);
 
   y=fotorij(['gas_m','gas_k'],y,40);
@@ -350,6 +371,8 @@ export async function downloadPDF(){
 
 // EMAIL
 export function openEmail(){
+ const validatie = valideerVoorVersturen();
+ if (!validatie.ok) { alert(validatie.melding); return; }
  document.getElementById('eml-sub').value=`FSB NTA 8025 ${gv('rapportnummer')} ${gv('adres')} ${gv('datum')}`;
  const cL=con==='g'?'GEEN BEZWAAR':con==='e'?'ENIG BEZWAAR':con==='r'?'ERNSTIG BEZWAAR':'NIET BEPAALD';
  document.getElementById('eml-body').value=`Geachte heer/mevrouw,

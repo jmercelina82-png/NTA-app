@@ -48,9 +48,9 @@
  </div>
  <div class="db">
  <div class="dstats">
- <div class="dstat"><div class="nr nr-bl" id="s-tot">0</div><div class="lb2">Totaal</div></div>
- <div class="dstat"><div class="nr nr-wn" id="s-op">0</div><div class="lb2">Openstaand</div></div>
- <div class="dstat"><div class="nr nr-ok" id="s-kl">0</div><div class="lb2">Afgerond</div></div>
+ <div class="dstat" id="dstat-tot"><div class="nr nr-bl" id="s-tot">0</div><div class="lb2">Totaal</div></div>
+ <div class="dstat" id="dstat-op"><div class="nr nr-wn" id="s-op">0</div><div class="lb2">Openstaand</div></div>
+ <div class="dstat" id="dstat-kl"><div class="nr nr-ok" id="s-kl">0</div><div class="lb2">Afgerond</div></div>
  </div>
  <button class="btn-nieuw-w" id="btn-nieuw" style="display:flex;align-items:center;gap:12px;text-align:left;">
  <span style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -65,6 +65,22 @@
  <div id="w-lijst-open"><div class="dash-leeg">Laden...</div></div>
  <div class="dash-sectie-titel">Afgerond</div>
  <div id="w-lijst-klaar"><div class="dash-leeg">Laden...</div></div>
+ </div>
+</div>
+
+<div id="alle-inspecties">
+ <div class="dh">
+ <div class="dh-titel">Alle inspecties</div>
+ <button class="hdr-btn" id="btn-sluitalle"> Terug</button>
+ </div>
+ <div class="db">
+ <input type="text" id="alle-zoek" placeholder="Zoek op adres...">
+ <div class="jng" id="alle-filters" style="margin-bottom:16px;">
+ <button class="jnb on" data-filter="alle">Alle</button>
+ <button class="jnb" data-filter="concept">Openstaand</button>
+ <button class="jnb" data-filter="afgerond">Afgerond</button>
+ </div>
+ <div id="alle-lijst"><div class="dash-leeg">Laden...</div></div>
  </div>
 </div>
 
@@ -158,7 +174,7 @@
  </div>
  </div>
  <div>
- <label class="lb">Gas (mÂ³)</label>
+ <label class="lb">Gas (m³)</label>
  <input type="text" id="msgas" placeholder="3480.408">
  <div class="foto-vak">
  <label class="foto-label" style="font-size:12px;padding:9px;">
@@ -240,12 +256,12 @@
  <div class="card-title"> Meetwaarden</div>
  <div class="g2">
  <div><label class="lb">Punt van meting</label><input type="text" id="meetpunt" placeholder="KEUKEN"></div>
- <div><label class="lb">Zc (Î©)</label><input type="text" id="zc" placeholder="0.25"></div>
- <div><label class="lb">Zc fasebescherming (Î©)</label><input type="text" id="zc2" placeholder="0.0"></div>
- <div><label class="lb">Isolatieweerstand (MÎ©)</label><input type="text" id="iso" placeholder="0.0"></div>
- <div><label class="lb">Weerstand bescherming (Î©)</label><input type="text" id="vereef" placeholder="0.0"></div>
- <div><label class="lb">Rinwendig (Î©)</label><input type="text" id="rinnw" placeholder="0.21"></div>
- <div><label class="lb">Rcircuit (Î©)</label><input type="text" id="rcirc" placeholder="0.22"></div>
+ <div><label class="lb">Zc (Ω)</label><input type="text" id="zc" placeholder="0.25"></div>
+ <div><label class="lb">Zc fasebescherming (Ω)</label><input type="text" id="zc2" placeholder="0.0"></div>
+ <div><label class="lb">Isolatieweerstand (MΩ)</label><input type="text" id="iso" placeholder="0.0"></div>
+ <div><label class="lb">Weerstand bescherming (Ω)</label><input type="text" id="vereef" placeholder="0.0"></div>
+ <div><label class="lb">Rinwendig (Ω)</label><input type="text" id="rinnw" placeholder="0.21"></div>
+ <div><label class="lb">Rcircuit (Ω)</label><input type="text" id="rcirc" placeholder="0.22"></div>
  </div>
  </div>
 
@@ -300,9 +316,9 @@
  <div class="card">
  <div class="card-title"> Temperatuurmetingen</div>
  <div class="g3">
- <div><label class="lb">Koudwater (Â°C)</label><input type="text" id="kw_t" placeholder="18.0"></div>
- <div><label class="lb">Warmwater (Â°C)</label><input type="text" id="ww_t" placeholder="57.0"></div>
- <div><label class="lb">Circulatie (Â°C)</label><input type="text" id="ci_t" placeholder="nvt"></div>
+ <div><label class="lb">Koudwater (°C)</label><input type="text" id="kw_t" placeholder="18.0"></div>
+ <div><label class="lb">Warmwater (°C)</label><input type="text" id="ww_t" placeholder="57.0"></div>
+ <div><label class="lb">Circulatie (°C)</label><input type="text" id="ci_t" placeholder="nvt"></div>
  </div>
  <div class="g2">
  <div>

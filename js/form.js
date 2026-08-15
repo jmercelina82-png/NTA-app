@@ -211,6 +211,30 @@ export function getSign(){
  return cv.toDataURL('image/png');
 }
 
+// VALIDATIE VOOR VERSTUREN/AFRONDEN
+// Blokkeert versturen bij ontbrekende kernvelden, of bij een onveilig/ernstig-
+// bezwaar-markering zonder toelichting (hergebruikt het bestaande "Aanvullende
+// opmerkingen"-veld bij de eindconclusie - geen nieuw toelichtingsveld per
+// controlepunt, dat zou voor de praktijk te streng worden). Springt naar de
+// stap waar het ontbrekende veld hoort, in plaats van alleen een melding te tonen.
+export function valideerVoorVersturen() {
+ const heeftOnveilig = jnS['bescherming']==='ONVEILIG'
+ || [...ELC,...ELV,...WTV,...GSV].some(it => oor[it.k]==='r');
+
+ const controles = [
+ {tab:0, ok:()=>!!gv('adres').trim(), melding:'Vul eerst het adres in voordat je verdergaat.'},
+ {tab:0, ok:()=>!!gv('datum').trim(), melding:'Vul eerst de inspectiedatum in voordat je verdergaat.'},
+ {tab:0, ok:()=>!!gv('inspecteur').trim(), melding:'Vul eerst de naam van de inspecteur in voordat je verdergaat.'},
+ {tab:4, ok:()=>!!con, melding:'Kies eerst een eindconclusie (geen/enig/ernstig bezwaar) voordat je verdergaat.'},
+ {tab:4, ok:()=>!heeftOnveilig||!!gv('con_opm').trim(), melding:'Er is een onderdeel als onveilig/ernstig bezwaar gemarkeerd - vul eerst een toelichting in bij "Aanvullende opmerkingen" voordat je verstuurt.'},
+ {tab:4, ok:()=>!!getSign(), melding:'De handtekening van de inspecteur ontbreekt nog.'},
+ ];
+ for (const c of controles) {
+ if (!c.ok()) { naarTab(c.tab); return {ok:false, melding:c.melding}; }
+ }
+ return {ok:true};
+}
+
 //
 // OPSLAAN & HERVATTEN
 //

@@ -184,7 +184,8 @@ input.ai-suggestie { border-color: var(--blue); background: #eaf1fd; }
 .dh-datum { font-size: 11px; color: var(--blue-light); margin-top: 2px; }
 .db { max-width: 600px; margin: 0 auto; padding: 20px 16px 60px; }
 .dstats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
-.dstat { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
+.dstat { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; cursor: pointer; }
+.dstat:active { opacity: .7; }
 .dstat .nr { font-weight: 800; font-size: 24px; }
 .dstat .lb2 { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 600; }
 .nr-bl { color: var(--blue); } .nr-ok { color: var(--green); } .nr-wn { color: var(--amber); }
@@ -203,6 +204,10 @@ input.ai-suggestie { border-color: var(--blue); background: #eaf1fd; }
 .dash-leeg { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 18px 14px; text-align: center; color: var(--faint); font-size: 13px; }
 #archief-detail { display: none; position: fixed; inset: 0; background: var(--shell-bg); z-index: 210; overflow-y: auto; }
 #archief-detail.on { display: block; }
+#alle-inspecties { display: none; position: fixed; inset: 0; background: var(--shell-bg); z-index: 205; overflow-y: auto; }
+#alle-inspecties.on { display: block; }
+#alle-zoek { margin-bottom: 12px; }
+#alle-filters .jnb.on { background: var(--blue); border-color: var(--blue); color: white; }
 .arch-rij { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 12px; }
 .arch-rij .lb2 { font-size: 11px; color: var(--muted); }
 .arch-rij .wa { font-size: 14px; text-align: right; }
