@@ -79,7 +79,8 @@ exports.handler = async function (event) {
     if (!body.id) {
       // Nieuwe inspectie: rapportnummer atomisch toekennen, direct aanmaken als concept.
       const id = crypto.randomUUID();
-      const rapportnummer = await claimRapportnummer(store);
+      const trace = body.__debugTrace ? [] : null;
+      const rapportnummer = await claimRapportnummer(store, undefined, trace);
       const rec = {
         id,
         rapportnummer,
@@ -90,7 +91,9 @@ exports.handler = async function (event) {
         verzonden: null
       };
       await store.setJSON(inspectieKey(id), rec);
-      return { statusCode: 200, headers, body: JSON.stringify({ success: true, id, rapportnummer, laatstGewijzigd: now }) };
+      const responseBody = { success: true, id, rapportnummer, laatstGewijzigd: now };
+      if (trace) responseBody.__debugTrace = trace;
+      return { statusCode: 200, headers, body: JSON.stringify(responseBody) };
     }
 
     if (!isValidId(body.id)) {

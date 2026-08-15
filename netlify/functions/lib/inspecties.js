@@ -28,7 +28,7 @@ function inspectieKey(id) {
 // niet beschikbaar is in Lambda compatibility mode / via connectLambda). Een
 // gedateerde lees leidt in het ergste geval alleen tot een extra conflict-
 // retry, nooit tot een dubbel nummer.
-async function claimRapportnummer(store, jaar = new Date().getFullYear()) {
+async function claimRapportnummer(store, jaar = new Date().getFullYear(), trace = null) {
   const key = `counter:rapportnummer:${jaar}`;
   // In het slechtste geval heeft de laatste van N gelijktijdige aanvragen N-1
   // retries nodig (elke retry is maar een lees + conditionele write, dus goedkoop).
@@ -39,6 +39,17 @@ async function claimRapportnummer(store, jaar = new Date().getFullYear()) {
     const writeOptions = entry && entry.etag ? { onlyIfMatch: entry.etag } : { onlyIfNew: true };
 
     const result = await store.set(key, String(volgende), writeOptions);
+    if (trace) {
+      trace.push({
+        poging,
+        gelezenEtag: entry && entry.etag,
+        gelezenData: entry && entry.data,
+        volgende,
+        writeOptions,
+        resultModified: result.modified,
+        resultEtag: result.etag
+      });
+    }
     if (result.modified) {
       return `NTA-${jaar}-${String(volgende).padStart(3, '0')}`;
     }
