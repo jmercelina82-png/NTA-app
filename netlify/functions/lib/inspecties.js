@@ -19,93 +19,76 @@ function inspectieKey(id) {
   return INSPECTIE_PREFIX + id;
 }
 
-async function alleInspecties(store) {
-  const { blobs } = await store.list({ prefix: INSPECTIE_PREFIX });
-  const records = await Promise.all(
-    blobs.map(b => store.get(b.key, { type: 'json' }).catch(() => null))
-  );
-  return records.filter(Boolean);
-}
-
-function wachtJitter(minMs = 80, maxMs = 220) {
+function wachtJitter(minMs = 120, maxMs = 320) {
   return new Promise(resolve => setTimeout(resolve, minMs + Math.random() * (maxMs - minMs)));
-}
-
-async function volgendeVrijeNummer(store, jaarPrefix, eigenId, trace) {
-  const records = await alleInspecties(store);
-  const bezet = new Map(); // rapportnummer -> laagst bekende id die het claimt
-  records.forEach(r => {
-    if (r.id === eigenId) return;
-    if (typeof r.rapportnummer === 'string' && r.rapportnummer.startsWith(jaarPrefix)) {
-      const huidig = bezet.get(r.rapportnummer);
-      if (!huidig || r.id < huidig) bezet.set(r.rapportnummer, r.id);
-    }
-  });
-  let n = 1, kandidaat;
-  do {
-    kandidaat = `${jaarPrefix}${String(n).padStart(3, '0')}`;
-    n++;
-  } while (bezet.has(kandidaat));
-  if (trace) trace.push({ actie: 'kandidaat-gekozen', kandidaat, aantalBezet: bezet.size });
-  return kandidaat;
 }
 
 // Rapportnummer toekennen EN de inspectie opslaan.
 //
-// Blobs' conditionele writes (onlyIfMatch/onlyIfNew) bleken in productie
-// onder gelijktijdige belasting niet betrouwbaar: meerdere schrijvers met een
-// IDENTIEKE onlyIfMatch-etag kregen allemaal modified:true terug (empirisch
-// vastgesteld met een debug-trace op 20 gelijktijdige aanvragen - 3 verzoeken
-// "wonnen" dezelfde compare-and-swap). Vermoedelijk mist de Lambda-
-// compatibility-mode context (connectLambda) de uncachedEdgeURL die nodig is
-// voor een betrouwbare conditionele check, vergelijkbaar met de eerdere
-// BlobsConsistencyError bij consistency:'strong' reads. We vertrouwen daarom
-// niet langer op een atomaire primitive die dit platform/deze functiemodus
-// niet blijkt te bieden.
+// Eerdere aanpak(en) bleken in productie onbetrouwbaar, empirisch vastgesteld
+// met een debug-trace op gelijktijdige/kort-na-elkaar aanvragen:
+// 1) onlyIfMatch/onlyIfNew (conditionele writes): meerdere schrijvers met een
+//    IDENTIEKE etag kregen allemaal modified:true terug - geen echte
+//    compare-and-swap-garantie op dit platform/deze functiemodus.
+// 2) store.list() als bron van waarheid om botsingen te detecteren: zelfs met
+//    3 seconden tussen aanvragen zag een latere aanvraag de net geschreven
+//    data van een eerdere niet - list() blijkt een aanmerkelijk grotere
+//    cache-vertraging te hebben dan losse get()/set()-aanroepen op een
+//    specifieke key (die in eerdere traces wel steeds de laatste stand lieten
+//    zien binnen dezelfde serie aanvragen).
 //
-// In plaats daarvan: optimistisch schrijven + verifiëren + deterministisch
-// terugtrekken bij een botsing. list()/get()/setJSON() zonder condities zijn
-// wel betrouwbaar gebleken (o.a. list-inspections gebruikt ze al maandenlang
-// zonder problemen). Twee schrijvers die toch hetzelfde nummer kiezen,
-// berekenen onafhankelijk van elkaar dezelfde uitkomst: degene met het
-// laagste (UUID) id houdt het nummer, de ander hernummert zichzelf - zonder
-// verdere coördinatie nodig te hebben. Kan een enkel volgnummer overslaan als
-// een verliezer hernummert (geaccepteerd: uniciteit is de harde eis, geen
-// gaten in de reeks is dat niet).
+// Deze aanpak gebruikt daarom uitsluitend ongeconditioneerde set()/get() op
+// SPECIFIEKE keys (geen list(), geen onlyIfMatch/onlyIfNew): voor een
+// kandidaatnummer wordt een aparte "claim"-key beschreven met het eigen id;
+// na een korte pauze wordt diezelfde key teruggelezen. Bij gelijktijdige
+// concurrentie geldt last-write-wins op die ene key - wie zijn eigen id nog
+// terugleest heeft de slot gewonnen, de ander schuift door naar het
+// eerstvolgende kandidaatnummer. Een tweede, herhaalde bevestiging na nog een
+// pauze verkleint het (nooit volledig te sluiten, want geen echte lock)
+// resterende venster waarin een net iets latere schrijver alsnog dezelfde
+// slot claimt nadat de eerste al "gewonnen" leek.
 async function claimEnBewaarRapportnummer(store, rec, jaar = new Date().getFullYear(), trace = null) {
   const jaarPrefix = `NTA-${jaar}-`;
+  const tellerKey = `counter:rapportnummer:${jaar}`;
 
-  rec.rapportnummer = await volgendeVrijeNummer(store, jaarPrefix, rec.id, trace);
-  await store.setJSON(inspectieKey(rec.id), rec);
-
-  for (let ronde = 0; ronde < 30; ronde++) {
-    // Oplopende jitter: bij grote clusters gelijktijdige aanvragen helpt meer
-    // spreiding om sneller te convergeren i.p.v. herhaald op elkaar te botsen.
-    await wachtJitter(80 + ronde * 15, 220 + ronde * 15);
-
-    const records = await alleInspecties(store);
-    const botsers = records.filter(r => r.rapportnummer === rec.rapportnummer && r.id !== rec.id);
-
-    if (trace) trace.push({ actie: 'verificatie', ronde, rapportnummer: rec.rapportnummer, botsers: botsers.map(b => b.id) });
-
-    if (!botsers.length) {
-      return rec.rapportnummer;
-    }
-
-    const winnaarId = [rec.id, ...botsers.map(r => r.id)].sort()[0];
-    if (winnaarId === rec.id) {
-      if (trace) trace.push({ actie: 'gewonnen', ronde });
-      return rec.rapportnummer;
-    }
-
-    // Wij verliezen de botsing (niet het laagste id): hernummer onszelf.
-    if (trace) trace.push({ actie: 'verloren-hernummeren', ronde, winnaarId });
-    rec.rapportnummer = await volgendeVrijeNummer(store, jaarPrefix, rec.id, trace);
-    await store.setJSON(inspectieKey(rec.id), rec);
+  let n;
+  try {
+    const tellerRaw = await store.get(tellerKey, { type: 'text' });
+    n = (tellerRaw ? parseInt(tellerRaw, 10) : 0) + 1;
+  } catch (_) {
+    n = 1;
   }
+  if (!Number.isFinite(n) || n < 1) n = 1;
 
-  // Zeer onwaarschijnlijk bij realistisch gebruik, maar geef nooit een
-  // niet-geverifieerd nummer terug.
+  for (let poging = 0; poging < 60; poging++) {
+    const kandidaat = `${jaarPrefix}${String(n).padStart(3, '0')}`;
+    const claimKey = `rapportnummer-claim:${kandidaat}`;
+
+    await store.set(claimKey, rec.id);
+    await wachtJitter();
+    const eersteLezing = await store.get(claimKey);
+
+    let gewonnen = eersteLezing === rec.id;
+    if (gewonnen) {
+      // Tweede bevestiging: verkleint het venster waarin een iets latere
+      // schrijver dezelfde slot alsnog overschrijft na onze eerste lezing.
+      await wachtJitter();
+      const tweedeLezing = await store.get(claimKey);
+      gewonnen = tweedeLezing === rec.id;
+    }
+
+    if (trace) trace.push({ poging, kandidaat, eigenId: rec.id, gewonnen });
+
+    if (gewonnen) {
+      rec.rapportnummer = kandidaat;
+      await store.setJSON(inspectieKey(rec.id), rec);
+      // Best effort: schuif de teller op als startpunt voor de volgende
+      // aanvraag (voorkomt dat iedereen steeds vanaf 1 begint te zoeken).
+      store.set(tellerKey, String(n)).catch(() => {});
+      return kandidaat;
+    }
+    n++; // iemand anders won deze slot, probeer het eerstvolgende nummer
+  }
   throw new Error('Kon geen uniek rapportnummer vaststellen (te veel gelijktijdige verzoeken)');
 }
 
