@@ -4,6 +4,7 @@
   "description": "FSB NTA 8025 Rapportage App",
   "dependencies": {
     "nodemailer": "^9.0.5",
-    "@netlify/blobs": "^10.0.0"
+    "@netlify/blobs": "^10.0.0",
+    "@anthropic-ai/sdk": "^0.117.1"
   }
 }

@@ -37,6 +37,12 @@ export async function saveInspectionRequest(payload) {
  });
 }
 
+export async function ocrMeterRequest(payload) {
+ return apiFetch('/.netlify/functions/ocr-meter', {
+ method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(payload)
+ });
+}
+
 // Let op: dit gebruikt bewust GEEN apiFetch (dus niet de gedeelde 401-afhandeling
 // hierboven) - dat is ongewijzigd overgenomen gedrag uit de oorspronkelijke
 // verstuur()-functie, die zijn eigen 401-check deed op de response. Zie form.js/pdf.js.

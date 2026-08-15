@@ -5,6 +5,7 @@
 import { huidigId } from './state.js';
 import { cancelPendingSave, serverSave } from './autosave.js';
 import { gv } from './utils.js';
+import { triggerOcrSuggestie } from './ocr.js';
 
 export let jnS={}, oor={}, alsList=[], rmList=[], con=null, fotos={};
 let signing=false, sCtx=null;
@@ -68,6 +69,7 @@ export function laadFoto(input, key) {
  img.src = e.target.result;
  prev.appendChild(img);
  }
+ triggerOcrSuggestie(key, e.target.result);
  };
  reader.readAsDataURL(file);
 }
