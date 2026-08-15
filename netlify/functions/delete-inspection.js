@@ -8,7 +8,7 @@ const {
 } = require('./lib/_shared');
 const { getInspectieStore, isValidId, inspectieKey } = require('./lib/inspecties');
 
-const RATE_LIMIT_MAX = 60;          // max aantal verzoeken...
+const RATE_LIMIT_MAX = 300;          // max aantal verzoeken (bulk opschonen kan meerdere aanroepen per sessie vergen)...
 const RATE_LIMIT_WINDOW_MS = 3600000; // ...per uur per IP
 
 exports.handler = async function (event) {
