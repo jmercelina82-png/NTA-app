@@ -5,6 +5,7 @@ import { cancelPendingSave, serverSave } from './autosave.js';
 import { naarTab, resetFormulier, vulFormulier } from './form.js';
 import { openPDF, openEmail } from './pdf.js';
 import { listInspectionsRequest, getInspectionRequest, saveInspectionRequest, deleteInspectionRequest } from './api.js';
+import { haalLokaleKopie, probeerSync } from './offline.js';
 
 let dashData = [];
 let alleFilter = 'alle'; // 'alle' | 'concept' | 'afgerond' - status-filter van het "Alle inspecties"-scherm
@@ -92,28 +93,31 @@ function renderDash() {
  <div class="wm">${w.rapportnummer||''} · ${w.datum||''}</div>
  </div>
  <span class="wb wb-k">Afgerond</span>
- <button class="wbtn" data-aid="${w.id}">Bekijk</button>`;
+ <button class="wbtn" data-aid="${w.id}">Bekijk</button>
+ <button class="wdel" data-did="${w.id}" title="Definitief verwijderen">×</button>`;
  div.querySelectorAll('[data-aid]').forEach(b => b.addEventListener('click', function(){ toonArchiefDetail(w); }));
+ div.querySelectorAll('[data-did]').forEach(b => b.addEventListener('click', function(){ verwijderInspectie(this.dataset.did, w.adres); }));
  ulKlaar.appendChild(div);
  });
  }
 }
 
-// Alleen concepten zijn verwijderbaar (delete-inspection.js weigert een
-// afgerond rapport toch al met een 409) - een verzonden rapport blijft
-// bewaard als auditspoor.
+// AVG: zowel concepten als afgeronde rapporten zijn handmatig verwijderbaar
+// (geen automatische bewaartermijn, wel een opschoonoptie per inspectie).
+// Altijd een expliciete bevestiging - onomkeerbaar, dus geen verwijdering
+// zonder die stap.
 export async function verwijderInspectie(id, adres) {
- if (!confirm(`Concept "${adres || 'Nieuwe inspectie'}" verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
+ if (!confirm(`Weet je zeker dat je "${adres || 'Nieuwe inspectie'}" definitief wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`)) return;
  try {
  const res = await deleteInspectionRequest(id);
  if (!res.ok) {
  const d = await res.json().catch(()=>({}));
- alert(d.error || 'Kon concept niet verwijderen.');
+ alert(d.error || 'Kon inspectie niet verwijderen.');
  return;
  }
  if (huidigId === id) setHuidigId(null);
  verversDashboard();
- } catch(_) { alert('Kon concept niet verwijderen (netwerkfout).'); }
+ } catch(_) { alert('Kon inspectie niet verwijderen (netwerkfout).'); }
 }
 
 export function toonArchiefDetail(w) {
@@ -180,6 +184,20 @@ export async function nieuweInspectie() {
 export async function laadInspectie(id) {
  cancelPendingSave();
  if (huidigId) await serverSave();
+ // Een nog niet gesynchroniseerde lokale kopie (bv. na een pagina-herlaad
+ // terwijl er geen verbinding was) is recenter dan wat de server heeft -
+ // die heeft voorrang op een normale server-fetch.
+ const lokaal = await haalLokaleKopie(id);
+ if (lokaal && lokaal.status === 'pending') {
+ setHuidigId(id);
+ vulFormulier({ id, ...lokaal.payload });
+ document.getElementById('dash').classList.remove('on');
+ naarTab(0);
+ // Direct de sync-indicator tonen (niet wachten tot de eerstvolgende
+ // wijziging) en meteen kansje wagen - de verbinding kan er intussen weer zijn.
+ probeerSync(id, lokaal.payload);
+ return;
+ }
  try {
  const res = await getInspectionRequest(id);
  if (!res.ok) { alert('Kon inspectie niet laden.'); return; }
@@ -188,7 +206,19 @@ export async function laadInspectie(id) {
  vulFormulier(rec);
  document.getElementById('dash').classList.remove('on');
  naarTab(0);
- } catch(_) { alert('Kon inspectie niet laden (netwerkfout).'); }
+ } catch(_) {
+ // Netwerkfout bij ophalen - val terug op een eventuele lokale kopie in
+ // plaats van de monteur helemaal te blokkeren.
+ if (lokaal) {
+ setHuidigId(id);
+ vulFormulier({ id, ...lokaal.payload });
+ document.getElementById('dash').classList.remove('on');
+ naarTab(0);
+ probeerSync(id, lokaal.payload);
+ } else {
+ alert('Kon inspectie niet laden (netwerkfout).');
+ }
+ }
 }
 
 // Dashboard knoppen
@@ -231,7 +261,7 @@ function renderAlleLijst() {
  </div>
  <span class="wb wb-${stC}">${stL}</span>
  <button class="wbtn" data-open>${isAfgerond ? 'Bekijk' : (isA ? 'Verder' : 'Open')}</button>
- ${isAfgerond ? '' : `<button class="wdel" data-did title="Concept verwijderen">×</button>`}`;
+ <button class="wdel" data-did title="Definitief verwijderen">×</button>`;
  div.querySelector('[data-open]').addEventListener('click', () => {
  if (isAfgerond) { toonArchiefDetail(w); }
  else { laadInspectie(w.id); sluitAlleInspecties(); }

@@ -70,6 +70,10 @@ export function laadFoto(input, key) {
  prev.appendChild(img);
  }
  triggerOcrSuggestie(key, e.target.result);
+ // Foto's direct lokaal (+ server-sync poging) bewaren, niet wachten op de
+ // gebruikelijke debounce - dit is het zwaarste/lastigst te herstellen
+ // stukje data om kwijt te raken als de verbinding wegvalt.
+ cancelPendingSave(); serverSave();
  };
  reader.readAsDataURL(file);
 }

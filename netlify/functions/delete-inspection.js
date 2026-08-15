@@ -53,11 +53,10 @@ exports.handler = async function (event) {
     if (!rec) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Inspectie niet gevonden' }) };
     }
-    // Alleen concepten verwijderbaar - een verzonden rapport blijft bewaard
-    // als auditspoor (zelfde regel als de edit-blokkade in save-inspection.js).
-    if (rec.status === 'afgerond') {
-      return { statusCode: 409, headers, body: JSON.stringify({ error: 'Een verzonden rapport kan niet verwijderd worden' }) };
-    }
+    // Concepten EN afgeronde rapporten zijn verwijderbaar (AVG: handmatige
+    // opschoonoptie per inspectie, geen automatische bewaartermijn). Foto's
+    // staan inline als base64 in ditzelfde record - er is geen aparte
+    // foto-opslag, dus deze ene delete() laat geen verweesde data achter.
     await store.delete(key);
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   } catch (err) {

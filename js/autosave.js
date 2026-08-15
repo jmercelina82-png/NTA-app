@@ -4,21 +4,24 @@
 import { huidigId } from './state.js';
 import { leesFormulierData, berekenVoortgang } from './form.js';
 import { comprimeerFotos } from './utils.js';
-import { saveInspectionRequest } from './api.js';
+import { bewaarLokaal, probeerSync } from './offline.js';
 
-let saveInFlight = null;
+// Eerst altijd lokaal (IndexedDB) bewaren - dat mag nooit mislukken op een
+// manier die werk verliest, ook niet zonder verbinding - en pas daarna een
+// server-sync proberen. Bij een netwerkfout/timeout blijft de wijziging
+// lokaal gemarkeerd en probeert offline.js het later opnieuw (online-event +
+// periodieke check); zie offline.js voor die logica en de sync-indicator.
 export async function serverSave() {
  if (!huidigId) return;
  const payload = { id: huidigId, ...leesFormulierData(), voortgangStappen: berekenVoortgang() };
  payload.fotos = await comprimeerFotos(payload.fotos, 480, 0.60);
- try {
- saveInFlight = saveInspectionRequest(payload);
- const res = await saveInFlight;
- if (res.ok) {
+
+ await bewaarLokaal(huidigId, payload);
+ const gelukt = await probeerSync(huidigId, payload);
+ if (gelukt) {
  const dot = document.getElementById('sdot');
  if (dot) { dot.classList.add('on'); setTimeout(()=>dot.classList.remove('on'), 1500); }
  }
- } catch(_) { /* auto-save mislukt stil; volgende trigger/tabwissel probeert opnieuw */ }
 }
 
 let saveTimer = null;
