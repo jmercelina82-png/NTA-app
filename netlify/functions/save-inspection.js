@@ -11,7 +11,7 @@ const {
   getInspectieStore,
   isValidId,
   inspectieKey,
-  claimRapportnummer
+  claimEnBewaarRapportnummer
 } = require('./lib/inspecties');
 
 const MAX_BODY_LEN = 9_000_000; // ruim boven wat gecomprimeerde fotos + formulierdata innemen
@@ -77,20 +77,20 @@ exports.handler = async function (event) {
 
   try {
     if (!body.id) {
-      // Nieuwe inspectie: rapportnummer atomisch toekennen, direct aanmaken als concept.
+      // Nieuwe inspectie: direct aanmaken als concept, rapportnummer wordt
+      // toegekend (en de inspectie opgeslagen) door claimEnBewaarRapportnummer.
       const id = crypto.randomUUID();
       const trace = body.__debugTrace ? [] : null;
-      const rapportnummer = await claimRapportnummer(store, undefined, trace);
       const rec = {
         id,
-        rapportnummer,
+        rapportnummer: null,
         status: 'concept',
         ...schoonFormData(body),
         aangemaakt: now,
         laatstGewijzigd: now,
         verzonden: null
       };
-      await store.setJSON(inspectieKey(id), rec);
+      const rapportnummer = await claimEnBewaarRapportnummer(store, rec, undefined, trace);
       const responseBody = { success: true, id, rapportnummer, laatstGewijzigd: now };
       if (trace) responseBody.__debugTrace = trace;
       return { statusCode: 200, headers, body: JSON.stringify(responseBody) };
