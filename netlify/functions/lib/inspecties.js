@@ -25,29 +25,40 @@ function wachtJitter(minMs = 120, maxMs = 320) {
 
 // Rapportnummer toekennen EN de inspectie opslaan.
 //
-// Eerdere aanpak(en) bleken in productie onbetrouwbaar, empirisch vastgesteld
-// met een debug-trace op gelijktijdige/kort-na-elkaar aanvragen:
+// BEKENDE, GEACCEPTEERDE BEPERKING: dit is een mitigatie, geen harde garantie.
+// Drie aanpakken zijn empirisch getest in productie (debug-traces op
+// gelijktijdige aanvragen) voordat op deze is uitgekomen:
 // 1) onlyIfMatch/onlyIfNew (conditionele writes): meerdere schrijvers met een
 //    IDENTIEKE etag kregen allemaal modified:true terug - geen echte
 //    compare-and-swap-garantie op dit platform/deze functiemodus.
 // 2) store.list() als bron van waarheid om botsingen te detecteren: zelfs met
 //    3 seconden tussen aanvragen zag een latere aanvraag de net geschreven
 //    data van een eerdere niet - list() blijkt een aanmerkelijk grotere
-//    cache-vertraging te hebben dan losse get()/set()-aanroepen op een
-//    specifieke key (die in eerdere traces wel steeds de laatste stand lieten
-//    zien binnen dezelfde serie aanvragen).
+//    cache-/replicatievertraging te hebben dan losse get()/set() op een
+//    specifieke key.
+// 3) (huidige aanpak) claim-key per kandidaatnummer + dubbele bevestiging:
+//    aanzienlijk beter (bij 20 gelijktijdige aanvragen ging unieke uitkomst
+//    van 1/20 en 12/20 naar 17-20/20), maar bij zware gelijktijdige belasting
+//    (~20 aanvragen binnen dezelfde milliseconden) bleven af en toe 2-3
+//    botsingen over - twee schrijvers lazen allebei hun EIGEN net geschreven
+//    waarde terug voordat de ander se schrijfactie zichtbaar werd.
 //
-// Deze aanpak gebruikt daarom uitsluitend ongeconditioneerde set()/get() op
-// SPECIFIEKE keys (geen list(), geen onlyIfMatch/onlyIfNew): voor een
-// kandidaatnummer wordt een aparte "claim"-key beschreven met het eigen id;
-// na een korte pauze wordt diezelfde key teruggelezen. Bij gelijktijdige
-// concurrentie geldt last-write-wins op die ene key - wie zijn eigen id nog
-// terugleest heeft de slot gewonnen, de ander schuift door naar het
-// eerstvolgende kandidaatnummer. Een tweede, herhaalde bevestiging na nog een
-// pauze verkleint het (nooit volledig te sluiten, want geen echte lock)
-// resterende venster waarin een net iets latere schrijver alsnog dezelfde
-// slot claimt nadat de eerste al "gewonnen" leek.
-async function claimEnBewaarRapportnummer(store, rec, jaar = new Date().getFullYear(), trace = null) {
+// Grondoorzaak: Blobs' enige echte sterke-consistentiegarantie
+// (consistency:'strong') vereist een uncachedEdgeURL die niet beschikbaar is
+// via connectLambda() (Lambda compatibility mode, waar deze functions in
+// draaien). Zonder die garantie is elke read-verify-aanpak kansberekening,
+// nooit een harde garantie. Een echte garantie vereist een migratie naar de
+// moderne Netlify Functions API (waar Blobs die garantie volgens Netlify's
+// eigen documentatie wel biedt) - bewust uitgesteld, risico geaccepteerd
+// voor nu omdat echte gelijktijdige "nieuwe inspectie"-clicks door meerdere
+// monteurs in de praktijk zeldzaam en niet in de tientallen tegelijk zijn.
+//
+// Werking: voor een kandidaatnummer wordt een aparte "claim"-key beschreven
+// met het eigen id (ongeconditioneerde set(), geen onlyIfMatch/onlyIfNew); na
+// een korte pauze wordt diezelfde key teruggelezen en een tweede keer
+// bevestigd na nog een pauze. Last-write-wins op die ene key bepaalt wie de
+// slot houdt; de verliezer schuift door naar het eerstvolgende kandidaatnummer.
+async function claimEnBewaarRapportnummer(store, rec, jaar = new Date().getFullYear()) {
   const jaarPrefix = `NTA-${jaar}-`;
   const tellerKey = `counter:rapportnummer:${jaar}`;
 
@@ -76,8 +87,6 @@ async function claimEnBewaarRapportnummer(store, rec, jaar = new Date().getFullY
       const tweedeLezing = await store.get(claimKey);
       gewonnen = tweedeLezing === rec.id;
     }
-
-    if (trace) trace.push({ poging, kandidaat, eigenId: rec.id, gewonnen });
 
     if (gewonnen) {
       rec.rapportnummer = kandidaat;
