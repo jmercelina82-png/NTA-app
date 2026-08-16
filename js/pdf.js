@@ -21,7 +21,31 @@ function fotoRij(key,cap){const l=fotos[key];if(!l||!l.length)return'';return`<d
 function meterFoto(k){const l=fotos[k];if(!l||!l.length)return'<td style="color:#aaa;font-size:10px;">Geen foto</td>';return`<td><img src="${l[0].d}" style="width:80px;height:58px;object-fit:cover;border:1px solid #ddd;border-radius:3px;"></td>`;}
 
 // PDF - jsPDF native rendering (vectorkwaliteit, geen html2canvas)
+//
+// Voordat het rapport wordt opgebouwd, gaan alle foto's eerst door
+// comprimeerFotos() (dezelfde canvas-hertekening als bij het e-mail-pad
+// hieronder in verstuur(), maar met een hogere resolutie/kwaliteit die bij
+// het volledige rapport past). Dat is geen kwaliteitsverlaging voor de
+// zichtbaarheid - de gedownloade/geopende PDF kwam bij sommige echte
+// telefoonfoto's helemaal zonder foto's terug, omdat doc.addImage() daar
+// stilzwijgend op faalt (elke inbedding hieronder is met opzet in een
+// try/catch gewikkeld). Een canvas-hertekening levert altijd een schone,
+// door de browser zelf opnieuw gecodeerde JPEG op, ongeacht wat de camera
+// oorspronkelijk aanleverde.
 export async function generatePDF() {
+  const origFotos = {...fotos};
+  const veilig = await comprimeerFotos(fotos, 1600, 0.85);
+  Object.keys(fotos).forEach(k => delete fotos[k]);
+  Object.assign(fotos, veilig);
+  try {
+    return await _bouwPDF();
+  } finally {
+    Object.keys(fotos).forEach(k => delete fotos[k]);
+    Object.assign(fotos, origFotos);
+  }
+}
+
+async function _bouwPDF() {
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const PW=210,PH=297,ML=14,MR=14,CW=182,HH=22,FY=285,CT=27,CB=281,RH=6.5;
@@ -395,7 +419,12 @@ export function openPDF(){
     const url=URL.createObjectURL(doc.output('blob'));
     const pdoc=document.getElementById('pdoc');
     pdoc.style.cssText='padding:0;max-width:100%;background:transparent;margin:0;';
-    pdoc.innerHTML='<iframe src="'+url+'#toolbar=0&navpanes=0" style="width:100%;height:calc(100vh - 56px);border:none;display:block;" title="PDF"></iframe>';
+    // Sommige mobiele browsers tonen een PDF niet inline in een iframe (bekende
+    // beperking, geen bug in de PDF zelf) - daarom altijd een zichtbare hint
+    // naar de werkende "Download PDF"-knop, in plaats van alleen een leeg/
+    // kapot voorvertoningsvlak te tonen.
+    pdoc.innerHTML='<div style="background:var(--amber-bg);color:var(--amber);border-bottom:1px solid var(--amber-border);font:600 12px \'Inter\',sans-serif;text-align:center;padding:8px 12px;">Zie je hieronder niets? Gebruik "Download PDF" hierboven.</div>'
+      +'<iframe src="'+url+'#toolbar=0&navpanes=0" style="width:100%;height:calc(100vh - 92px);border:none;display:block;" title="PDF"></iframe>';
     document.getElementById('pov').classList.add('on');
   }).catch(e=>{console.error('PDF fout:',e);alert('PDF fout: '+e.message);});
 }
