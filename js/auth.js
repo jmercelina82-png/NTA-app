@@ -38,6 +38,7 @@ async function _pinVerify(){
 }
 
 document.getElementById('pin-logo').src = LOGO;
+document.getElementById('dh-logo').src = LOGO;
 
 export function getSessionToken() {
  try { return JSON.parse(localStorage.getItem(_PS)||'{}').token || ''; } catch(_) { return ''; }

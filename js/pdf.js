@@ -25,7 +25,7 @@ export async function generatePDF() {
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const PW=210,PH=297,ML=14,MR=14,CW=182,HH=22,FY=285,CT=27,CB=281,RH=6.5;
-  const BL=[30,95,191],LBL=[232,240,251];
+  const BL=[19,123,255],LBL=[234,242,255],NV=[6,20,38];
   const cL=con==='g'?'GEEN BEZWAAR':con==='e'?'ENIG BEZWAAR':con==='r'?'ERNSTIG BEZWAAR':'NIET BEPAALD';
   const cC=con==='g'?[34,197,94]:con==='e'?[245,158,11]:[239,68,68];
   let pg=1;
@@ -62,7 +62,8 @@ export async function generatePDF() {
 
   // Header
   const hdr=(sub='Rapportage NTA 8025')=>{
-    doc.setFillColor(...BL);doc.rect(0,0,PW,HH,'F');
+    doc.setFillColor(...NV);doc.rect(0,0,PW,HH,'F');
+    doc.setFillColor(...BL);doc.rect(0,HH,PW,1,'F');
     doc.setFillColor(255,255,255);doc.roundedRect(ML,3,16,16,1.5,1.5,'F');
     if(typeof LOGO!=='undefined'&&LOGO){try{doc.addImage(LOGO,'PNG',ML+1,4,14,14);}catch(_){}}
     doc.setTextColor(255,255,255);
@@ -74,11 +75,12 @@ export async function generatePDF() {
 
   // Footer
   const ftr=()=>{
-    doc.setFillColor(...BL);doc.rect(0,FY,PW,PH-FY,'F');
-    doc.setTextColor(255,255,255);doc.setFont('helvetica','normal');doc.setFontSize(7);
+    doc.setFillColor(243,246,250);doc.rect(0,FY,PW,PH-FY,'F');
+    doc.setDrawColor(228,234,241);doc.setLineWidth(0.3);doc.line(0,FY,PW,FY);
+    doc.setTextColor(122,139,156);doc.setFont('helvetica','normal');doc.setFontSize(7);
     doc.text('FSB Onderhoudsbedrijf BV  \xb7  Lulofstraat 52, Den Haag  \xb7  '+gv('inspecteur')+'  \xb7  '+gv('mobiel'),ML,FY+5);
     doc.text(new Date().toLocaleDateString('nl-NL'),PW-MR,FY+5,{align:'right'});
-    doc.setTextColor(0,0,0);
+    doc.setTextColor(0,0,0);doc.setDrawColor(0,0,0);
   };
 
   const newPg=(sub)=>{ftr();doc.addPage();pg++;hdr(sub);};
@@ -392,6 +394,7 @@ FSB Onderhoudsbedrijf BV`;
  document.getElementById('eml-st').style.display='none';
  document.getElementById('btn-dosend').disabled=false;
  document.getElementById('btn-dosend').textContent=' Verstuur';
+ document.getElementById('eml-form-inhoud').style.display='block';
  document.getElementById('eml-na-verzenden').style.display='none';
  document.getElementById('eml-acties').style.display='flex';
  document.getElementById('eml').classList.add('on');
@@ -404,12 +407,13 @@ export function naarDashboardNaVerzenden(){
  verversDashboard();
 }
 document.getElementById('btn-na-verzenden-dash').addEventListener('click', naarDashboardNaVerzenden);
+document.getElementById('btn-succes-pdf').addEventListener('click', () => { sluitEmail(); openPDF(); });
 export async function verstuur(){
   const btn = document.getElementById('btn-dosend');
   const st  = document.getElementById('eml-st');
   btn.disabled = true;
   btn.textContent = 'Bezig...';
-  st.style.cssText = 'display:block;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;background:#e8f0fb;color:#1a4fa0;font-weight:600;';
+  st.style.cssText = 'display:block;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;background:rgba(19,123,255,.14);color:#9CC6FF;font-weight:600;';
   st.textContent = 'Verbinding maken...';
 
   const subject = document.getElementById('eml-sub').value;
@@ -455,10 +459,17 @@ export async function verstuur(){
     try { data = JSON.parse(text); } catch(_) {}
 
     if (res.ok && data.success) {
-      st.style.cssText = 'display:block;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;background:#e8f5e9;color:#1a7a3d;font-weight:700;';
-      st.textContent = 'Email verzonden naar Staedion + CC naar jou! De inspectie staat nu bij Afgerond.';
+      st.style.display = 'none';
       btn.textContent = 'Verzonden!';
+      document.getElementById('eml-form-inhoud').style.display = 'none';
       document.getElementById('eml-acties').style.display = 'none';
+      const cLNaam = con==='g'?'Geen bezwaar':con==='e'?'Enig bezwaar':con==='r'?'Ernstig bezwaar':'Onbekend';
+      const cLCls = con==='g'?'succes-badge-g':con==='e'?'succes-badge-e':con==='r'?'succes-badge-r':'succes-badge-e';
+      document.getElementById('succes-adres').textContent = gv('adres') + (gv('plaats') ? ' \xb7 ' + gv('plaats') : '');
+      document.getElementById('succes-rapportnr').textContent = gv('rapportnummer');
+      const resEl = document.getElementById('succes-resultaat');
+      resEl.textContent = cLNaam;
+      resEl.className = 'succes-badge ' + cLCls;
       document.getElementById('eml-na-verzenden').style.display = 'block';
     } else {
       if (res.status === 401) {
@@ -469,7 +480,7 @@ export async function verstuur(){
       throw new Error(`Server fout ${res.status}${detail ? ': ' + detail : ''}`);
     }
   } catch(err) {
-    st.style.cssText = 'display:block;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;background:#fde;color:#721c24;font-weight:600;';
+    st.style.cssText = 'display:block;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;background:rgba(255,107,107,.14);color:#FF6B6B;font-weight:600;';
     st.textContent = 'Fout: ' + err.message;
     btn.disabled = false;
     btn.textContent = 'Email + PDF';
@@ -488,7 +499,7 @@ export async function verstuurWhatsApp(){
 
   const toonStatus = (msg, ok=true) => {
     st.style.cssText = 'display:block;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;line-height:1.6;font-weight:600;'
-      + (ok ? 'background:#e8f5e9;color:#1a7a3d;' : 'background:#fde;color:#721c24;');
+      + (ok ? 'background:rgba(46,180,120,.14);color:#3FD08C;' : 'background:rgba(255,107,107,.14);color:#FF6B6B;');
     st.innerHTML = msg;
   };
 

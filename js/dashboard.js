@@ -11,6 +11,11 @@ import { esc } from './utils.js';
 let dashData = [];
 let alleFilter = 'alle'; // 'alle' | 'concept' | 'afgerond' - status-filter van het "Alle inspecties"-scherm
 
+function wcIcon(stC) {
+ const stroke = stC === 'k' ? '#3FD08C' : stC === 'o' ? '#4E9BFF' : '#8AA0BC';
+ return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>`;
+}
+
 function toonDashFout() {
  const msg = '<div class="dash-leeg">Kon inspecties niet laden. Controleer de verbinding.</div>';
  document.getElementById('w-lijst-open').innerHTML = msg;
@@ -65,14 +70,17 @@ function renderDash() {
  const bezig = (w.voortgangStappen||[]).some(Boolean);
  const stL = bezig ? 'Bezig' : 'Concept';
  const stC = bezig ? 'o' : 'n';
+ const gedaan = (w.voortgangStappen||[]).filter(Boolean).length;
+ const pct = Math.round(gedaan/5*100);
  const div = document.createElement('div'); div.className='wc'+(isA?' act':'');
  div.innerHTML = `
- <div class="wdot wdot-${stC}"></div>
+ <div class="wdot wdot-${stC}">${wcIcon(stC)}</div>
  <div class="wi">
  <div class="wa">${esc(adr)}</div>
  <div class="wm">${esc(w.rapportnummer||'')} · ${esc(w.datum||'')} · ${esc(w.voortgang)}</div>
  </div>
  <span class="wb wb-${stC}">${stL}</span>
+ <div class="wprog"><i style="width:${pct}%"></i></div>
  <button class="wbtn" data-lid="${w.id}">${isA ? 'Verder' : 'Open'}</button>
  <button class="wdel" data-did="${w.id}" title="Concept verwijderen">×</button>`;
  div.querySelectorAll('[data-lid]').forEach(b => b.addEventListener('click', function(){ laadInspectie(this.dataset.lid); }));
@@ -88,7 +96,7 @@ function renderDash() {
  klaar.sort((a,b)=>(b.verzonden||0)-(a.verzonden||0)).forEach(w => {
  const div = document.createElement('div'); div.className='wc';
  div.innerHTML = `
- <div class="wdot wdot-k"></div>
+ <div class="wdot wdot-k">${wcIcon('k')}</div>
  <div class="wi">
  <div class="wa">${esc(w.adres||'')}</div>
  <div class="wm">${esc(w.rapportnummer||'')} · ${esc(w.datum||'')}</div>
@@ -253,14 +261,17 @@ function renderAlleLijst() {
  const bezig = (w.voortgangStappen || []).some(Boolean);
  const stL = isAfgerond ? 'Afgerond' : (bezig ? 'Bezig' : 'Concept');
  const stC = isAfgerond ? 'k' : (bezig ? 'o' : 'n');
+ const gedaan = (w.voortgangStappen || []).filter(Boolean).length;
+ const pct = Math.round(gedaan/5*100);
  const div = document.createElement('div'); div.className = 'wc' + (isA ? ' act' : '');
  div.innerHTML = `
- <div class="wdot wdot-${stC}"></div>
+ <div class="wdot wdot-${stC}">${wcIcon(stC)}</div>
  <div class="wi">
  <div class="wa">${esc(adr)}</div>
  <div class="wm">${esc(w.rapportnummer || '')} · ${esc(w.datum || '')}${isAfgerond ? '' : ' · ' + esc(w.voortgang)}</div>
  </div>
  <span class="wb wb-${stC}">${stL}</span>
+ ${isAfgerond ? '' : `<div class="wprog"><i style="width:${pct}%"></i></div>`}
  <button class="wbtn" data-open>${isAfgerond ? 'Bekijk' : (isA ? 'Verder' : 'Open')}</button>
  <button class="wdel" data-did title="Definitief verwijderen">×</button>`;
  div.querySelector('[data-open]').addEventListener('click', () => {

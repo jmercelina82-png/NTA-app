@@ -15,14 +15,14 @@
 
 <!-- PIN SCHERM -->
 <div id="pin-screen">
-  <img id="pin-logo" alt="FSB" style="width:64px;height:64px;background:white;border-radius:14px;padding:8px;margin-bottom:16px;object-fit:contain;">
-  <div style="color:white;font-size:22px;font-weight:800;letter-spacing:-0.02em;margin-bottom:6px;">FSB Onderhoudsbedrijf BV</div>
-  <div style="color:#7FA8E0;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:22px;">NTA Inspectie &amp; Rapportage</div>
-  <div style="color:rgba(255,255,255,.75);font-size:13px;margin-bottom:28px;">Voer uw pincode in om door te gaan</div>
-  <div id="pin-dots" style="display:flex;gap:14px;margin-bottom:28px;">
+  <div class="pin-logo-box"><img id="pin-logo" alt="FSB"></div>
+  <div style="color:var(--text);font-size:21px;font-weight:800;letter-spacing:-0.02em;margin-top:18px;margin-bottom:6px;">FSB Onderhoudsbedrijf BV</div>
+  <div style="color:var(--muted);font-size:9.5px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:26px;">NTA Inspectie &amp; Rapportage</div>
+  <div style="color:var(--muted2);font-size:13px;margin-bottom:22px;">Voer uw pincode in om door te gaan</div>
+  <div id="pin-dots" style="display:flex;gap:15px;margin-bottom:32px;position:relative;">
     <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
   </div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+  <div style="display:grid;grid-template-columns:repeat(3,74px);gap:13px;position:relative;">
     <button class="pin-key" data-act="pinKey" data-arg="1">1</button>
     <button class="pin-key" data-act="pinKey" data-arg="2">2</button>
     <button class="pin-key" data-act="pinKey" data-arg="3">3</button>
@@ -34,38 +34,49 @@
     <button class="pin-key" data-act="pinKey" data-arg="9">9</button>
     <span></span>
     <button class="pin-key" data-act="pinKey" data-arg="0">0</button>
-    <button class="pin-key" data-act="pinDel" style="font-size:18px;">&#x232B;</button>
+    <button class="pin-key pin-del" data-act="pinDel" title="Wissen"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#8AA0BC" stroke-width="1.8" stroke-linecap="round"><path d="M21 5H9l-6 7 6 7h12z"/><path d="M14 9.5l-4 5M10 9.5l4 5"/></svg></button>
   </div>
-  <div id="pin-err" style="color:#ff8080;font-size:13px;margin-top:18px;min-height:18px;font-weight:600;text-align:center;"></div>
+  <div id="pin-err" style="color:#ff8080;font-size:13px;margin-top:18px;min-height:18px;font-weight:600;text-align:center;position:relative;"></div>
+  <div class="powered-by" style="position:absolute;bottom:16px;left:0;right:0;"><span>Powered by</span><img src="assets/ryvol-logo-light.png" alt="Ryvol"></div>
 </div>
 
 <div id="dash">
  <div class="dh">
- <div>
- <div class="dh-titel"> Inspecties</div>
+ <img id="dh-logo" alt="FSB">
+ <div style="flex:1;min-width:0;">
+ <div class="dh-titel">Inspecties</div>
  <div class="dh-datum" id="d-dat"></div>
  </div>
  <button class="hdr-btn" id="btn-sluitdash" style="display:none;"> Terug</button>
  </div>
  <div class="db">
  <div class="dstats">
- <div class="dstat" id="dstat-tot"><div class="nr nr-bl" id="s-tot">0</div><div class="lb2">Totaal</div></div>
- <div class="dstat" id="dstat-op"><div class="nr nr-wn" id="s-op">0</div><div class="lb2">Openstaand</div></div>
- <div class="dstat" id="dstat-kl"><div class="nr nr-ok" id="s-kl">0</div><div class="lb2">Afgerond</div></div>
- </div>
- <button class="btn-nieuw-w" id="btn-nieuw" style="display:flex;align-items:center;gap:12px;text-align:left;">
- <span style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
- <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+ <button class="btn-nieuw-w" id="btn-nieuw">
+ <span style="width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;">
+ <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
  </span>
  <span>
- <span style="display:block;color:#fff;font-size:15px;font-weight:700;">Nieuwe inspectie</span>
- <span style="display:block;color:#CFE0FF;font-size:12px;font-weight:500;margin-top:1px;">Start een nieuwe woninginspectie</span>
+ <span style="display:block;color:#fff;font:700 14px 'Inter',sans-serif;">Nieuwe inspectie</span>
+ <span style="display:block;color:#CFE2FF;font:500 11px/1.35 'Inter',sans-serif;margin-top:3px;">Start een nieuwe inspectie</span>
  </span>
  </button>
- <div class="dash-sectie-titel">Openstaand</div>
+ <div class="dstat-secundair" id="dstat-op">
+ <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4E9BFF" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+ <span><span class="nr2" id="s-op">0</span><span class="lb2">Concepten</span></span>
+ </div>
+ <div class="dstat-secundair" id="dstat-kl">
+ <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4E9BFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h6l2 2h10v10H3z"/></svg></span>
+ <span><span class="nr2" id="s-kl">0</span><span class="lb2">Archief</span></span>
+ </div>
+ </div>
+ <div class="dash-sectie-rij">
+ <span class="dash-sectie-titel">Openstaand</span>
+ <span class="dash-bekijk-alle" id="dstat-tot">Bekijk alle (<span id="s-tot">0</span>)</span>
+ </div>
  <div id="w-lijst-open"><div class="dash-leeg">Laden...</div></div>
- <div class="dash-sectie-titel">Afgerond</div>
+ <div class="dash-sectie-titel" style="margin-top:22px;margin-bottom:10px;">Afgerond</div>
  <div id="w-lijst-klaar"><div class="dash-leeg">Laden...</div></div>
+ <div class="powered-by"><span>Powered by</span><img src="assets/ryvol-logo-light.png" alt="Ryvol"></div>
  </div>
 </div>
 
@@ -432,15 +443,27 @@
 <!-- EMAIL -->
 <div id="eml">
   <div class="eml-box">
-    <div style="font-weight:700;font-size:17px;color:#1a4fa0;margin-bottom:14px;">Rapport verzenden</div>
-    <div style="background:#e8f0fb;padding:10px;border-radius:8px;margin-bottom:12px;font-size:12px;color:#1a4fa0;font-weight:600;">Aan: Staedion.mutatie@rendon.nl</div>
-    <label class="lb">Onderwerp</label>
-    <input type="text" id="eml-sub" style="margin-bottom:10px;">
-    <label class="lb">Bericht</label>
-    <textarea id="eml-body" style="min-height:80px;margin-bottom:10px;"></textarea>
+    <div id="eml-form-inhoud">
+      <div class="eml-titel">Rapport verzenden</div>
+      <div style="background:rgba(19,123,255,.12);border:1px solid rgba(19,123,255,.28);padding:10px;border-radius:8px;margin-bottom:12px;font-size:12px;color:#9CC6FF;font-weight:600;">Aan: Staedion.mutatie@rendon.nl</div>
+      <label class="lb">Onderwerp</label>
+      <input type="text" id="eml-sub" style="margin-bottom:10px;">
+      <label class="lb">Bericht</label>
+      <textarea id="eml-body" style="min-height:80px;margin-bottom:10px;"></textarea>
+    </div>
     <div id="eml-st" style="display:none;padding:12px;border-radius:8px;margin-bottom:10px;font-size:13px;line-height:1.5;"></div>
     <div id="eml-na-verzenden" style="display:none;">
-      <button class="btn-blauw" id="btn-na-verzenden-dash" style="width:100%;">Naar dashboard</button>
+      <div class="succes-icon"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4.5 4.5L19 7"/></svg></div>
+      <div class="succes-titel">Inspectie afgerond</div>
+      <div class="succes-adres" id="succes-adres"></div>
+      <div class="succes-card">
+        <div class="succes-rij"><span>Rapportnummer</span><span id="succes-rapportnr" class="succes-mono"></span></div>
+        <div class="succes-divider"></div>
+        <div class="succes-rij"><span>Resultaat</span><span id="succes-resultaat" class="succes-badge"></span></div>
+      </div>
+      <button class="succes-actie" id="btn-succes-pdf"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4E9BFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg><span class="fl">Rapport bekijken</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4E9BFF" stroke-width="2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></button>
+      <button class="btn-blauw" id="btn-na-verzenden-dash" style="width:100%;margin-top:14px;">Terug naar dashboard</button>
+      <div class="powered-by"><span>Powered by</span><img src="assets/ryvol-logo-light.png" alt="Ryvol"></div>
     </div>
     <div id="eml-acties" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
       <button class="btn-wit" data-act="sluitEmail">Annuleren</button>
