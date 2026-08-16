@@ -161,7 +161,12 @@ function sign(payload, secret) {
 
 // Simpel HMAC-ondertekend sessietoken: base64url(payload).base64url(handtekening).
 // Geen JWT-library nodig, geen "alg: none" of andere JWT-valkuilen.
-function createSessionToken(secret, ttlMs = 24 * 3600000) {
+// 8 uur (werkdag-lengte) i.p.v. 24 - kortere sessies bij een gedeelde PIN
+// verkleinen het venster waarin een gestolen/vergeten-uitgelogd token
+// bruikbaar blijft. Pas ook js/auth.js aan bij wijziging van deze waarde
+// (de client controleert los of een bewaard token nog binnen de geldigheids-
+// termijn valt, voordat 'm hier al dan niet geweigerd wordt).
+function createSessionToken(secret, ttlMs = 8 * 3600000) {
   const payload = base64url(JSON.stringify({ exp: Date.now() + ttlMs }));
   return `${payload}.${sign(payload, secret)}`;
 }
@@ -203,6 +208,28 @@ function hasValidSession(event) {
   return verifySessionToken(event.headers['x-session-token'], secret);
 }
 
+// Lichte accountability-logging (geen zware audit-infrastructuur: geen UI,
+// geen retentiebeleid, gewoon genoeg om achteraf te kunnen reconstrueren wat
+// er gebeurd is bij een gedeelde PIN - wie/wanneer is niet te herleiden naar
+// een persoon, maar tijdstip + IP + actie + inspectie-id samen wel bruikbaar
+// voor reconstructie). Eigen, aparte Blobs-store (nta-logboek), gescheiden
+// van de inspectiedata zelf. Eén key per logregel (geen read-modify-write op
+// een groeiende lijst - dat zou zowel traag als race-gevoelig worden), dus
+// puur een append-only set van schrijfacties zonder onderlinge afhankelijkheid.
+// Loggen is altijd best-effort: een loghapering mag de eigenlijke actie
+// (opslaan/versturen/verwijderen) nooit blokkeren of laten mislukken.
+const LOGBOEK_STORE = 'nta-logboek';
+async function logActie(event, actie, inspectieId) {
+  try {
+    const store = getStore(LOGBOEK_STORE);
+    const tijdstip = new Date().toISOString();
+    const key = `log:${tijdstip}:${crypto.randomUUID().slice(0, 8)}`;
+    await store.setJSON(key, { tijdstip, actie, inspectieId, ip: getClientIp(event) });
+  } catch (err) {
+    console.warn('Kon actie niet loggen (logboek aparte zorg, blokkeert de actie zelf niet):', err.message);
+  }
+}
+
 module.exports = {
   ALLOWED_ORIGINS,
   corsHeaders,
@@ -215,5 +242,6 @@ module.exports = {
   verifySessionToken,
   safeCompare,
   hasValidSession,
-  connectBlobs
+  connectBlobs,
+  logActie
 };

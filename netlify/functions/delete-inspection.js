@@ -4,7 +4,8 @@ const {
   getClientIp,
   checkRateLimit,
   hasValidSession,
-  connectBlobs
+  connectBlobs,
+  logActie
 } = require('./lib/_shared');
 const { getInspectieStore, isValidId, inspectieKey } = require('./lib/inspecties');
 
@@ -58,6 +59,7 @@ exports.handler = async function (event) {
     // staan inline als base64 in ditzelfde record - er is geen aparte
     // foto-opslag, dus deze ene delete() laat geen verweesde data achter.
     await store.delete(key);
+    await logActie(event, 'verwijderd', body.id);
     return { statusCode: 200, headers, body: JSON.stringify({ success: true }) };
   } catch (err) {
     console.error('delete-inspection fout:', err.message);

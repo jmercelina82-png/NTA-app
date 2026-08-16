@@ -8,7 +8,7 @@ export const _PS = 'fsb_session';
 let _pi = '';
 (function _pinInit(){
   const s = localStorage.getItem(_PS);
-  if(s){try{const{t}=JSON.parse(s);if((Date.now()-t)/3600000<24){document.getElementById('pin-screen').style.display='none';toonDashboardNaLogin();return;}}catch(_){}}
+  if(s){try{const{t}=JSON.parse(s);if((Date.now()-t)/3600000<8){document.getElementById('pin-screen').style.display='none';toonDashboardNaLogin();return;}}catch(_){}}
 })();
 export function pinKey(k){if(_pi.length>=4)return;_pi+=k;_pinDots();if(_pi.length===4)setTimeout(_pinVerify,80);}
 export function pinDel(){_pi=_pi.slice(0,-1);_pinDots();}

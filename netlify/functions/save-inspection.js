@@ -5,7 +5,8 @@ const {
   getClientIp,
   checkRateLimit,
   hasValidSession,
-  connectBlobs
+  connectBlobs,
+  logActie
 } = require('./lib/_shared');
 const {
   getInspectieStore,
@@ -90,6 +91,11 @@ exports.handler = async function (event) {
         verzonden: null
       };
       const rapportnummer = await claimEnBewaarRapportnummer(store, rec);
+      // Loggen vóór het antwoord terugsturen - in een Lambda-achtige omgeving
+      // kan werk na de response niet gegarandeerd nog doorlopen, dus een
+      // "fire-and-forget" hier zou het logregel stil kunnen laten verdwijnen.
+      // logActie() zelf is best-effort (blokkeert/faalt de actie niet).
+      await logActie(event, 'aangemaakt', id);
       return { statusCode: 200, headers, body: JSON.stringify({ success: true, id, rapportnummer, laatstGewijzigd: now }) };
     }
 
@@ -123,6 +129,7 @@ exports.handler = async function (event) {
     };
     rec.f.rapportnummer = bestaand.rapportnummer;
     await store.setJSON(inspectieKey(bestaand.id), rec);
+    await logActie(event, 'bijgewerkt', rec.id);
     return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: rec.id, rapportnummer: rec.rapportnummer, laatstGewijzigd: now }) };
   } catch (err) {
     console.error('save-inspection fout:', err.message);

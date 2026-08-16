@@ -5,7 +5,8 @@ const {
   getClientIp,
   checkRateLimit,
   hasValidSession,
-  connectBlobs
+  connectBlobs,
+  logActie
 } = require('./lib/_shared');
 const { getInspectieStore, isValidId, inspectieKey } = require('./lib/inspecties');
 
@@ -128,6 +129,8 @@ exports.handler = async function(event) {
         console.warn('Kon inspectie niet op afgerond zetten:', statusErr.message);
       }
     }
+
+    await logActie(event, 'verzonden', isValidId(id) ? id : null);
 
     return {
       statusCode: 200,
