@@ -1,7 +1,7 @@
 // jsPDF-generatielogica, plus het versturen van het rapport (e-mail/WhatsApp) -
 // die twee horen inhoudelijk samen (de PDF wordt als bijlage meegestuurd) en
 // stonden ook in de oorspronkelijke index.html direct na elkaar.
-import { jnS, oor, con, fotos, alsList, rmList, ELC, ELV, WTV, GSV, getSign, valideerVoorVersturen } from './form.js';
+import { jnS, oor, oorReden, con, fotos, alsList, rmList, ELC, ELV, WTV, GSV, getSign, valideerVoorVersturen } from './form.js';
 import { gv, LOGO, comprimeerFotos, esc } from './utils.js';
 import { huidigId } from './state.js';
 import { _PS } from './auth.js';
@@ -176,6 +176,38 @@ export async function generatePDF() {
     return y+maxH+5;
   };
 
+  // Toelichting + foto bij als "Enig"/"Ernstig bezwaar" gemarkeerde punten -
+  // dezelfde gegevens die in de app onder dat punt zijn ingevuld (oorReden/
+  // fotos met sleutel "oor_<key>"), als los blokje direct onder de bijbehorende
+  // tabel. points = [{key, naam, grade}]
+  const aandachtspunten = (points, y) => {
+    points.filter(p => p.grade==='e'||p.grade==='r').forEach(p => {
+      const reden = (oorReden[p.key]||'').trim();
+      const foto = (fotos['oor_'+p.key]||[])[0];
+      const wt = reden ? doc.splitTextToSize(reden,CW-16) : [];
+      const fh = foto ? 30 : 0;
+      const bh = 6 + wt.length*4 + (foto?fh+3:0) + 3;
+      y=chk(y,bh+3);
+      const isR=p.grade==='r';
+      const clr=isR?[239,68,68]:[245,158,11], bg=isR?[254,226,226]:[254,243,199];
+      doc.setFillColor(...bg);doc.roundedRect(ML,y,CW,bh,1.5,1.5,'F');
+      doc.setFillColor(...clr);doc.rect(ML,y,3,bh,'F');
+      doc.setFont('helvetica','bold');doc.setFontSize(7.5);doc.setTextColor(...clr);
+      doc.text((isR?'Ernstig bezwaar — ':'Enig bezwaar — ')+p.naam,ML+7,y+5);
+      doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(50,50,50);
+      let ly=y+5;
+      wt.forEach(l=>{ly+=4;doc.text(l,ML+7,ly);});
+      if(foto){
+        ly+=3;
+        const{w,h}=iDim(foto.d,42,fh);
+        try{doc.addImage(foto.d,fmt(foto.d),ML+7,ly,w,h);doc.setDrawColor(200,200,200);doc.setLineWidth(0.3);doc.rect(ML+7,ly,w,h);}catch(_){}
+      }
+      doc.setTextColor(0,0,0);
+      y+=bh+3;
+    });
+    return y;
+  };
+
   // ============ PAGINA 1: VOORBLAD ============
   hdr();let y=CT;
 
@@ -258,6 +290,7 @@ export async function generatePDF() {
 
   y=sec('1. Elektrische installatie — Technische controles',y);
   y=tbl(['Controlepunt','Oordeel'],ELC.map(it=>[it.t+(it.s?' ('+it.s+')':''),oor[it.k]||'']),y,[148,34],true);
+  y=aandachtspunten(ELC.map(it=>({key:it.k,naam:it.t,grade:oor[it.k]})),y);
 
   y=sec('Meetwaarden elektrische installatie',y);
   y=tbl(['Parameter','Waarde'],[
@@ -278,6 +311,7 @@ export async function generatePDF() {
 
   y=sec('Visuele beoordeling elektrische installatie',y);
   y=tbl(['Aspect','Oordeel'],ELV.map(it=>[it.t,oor[it.k]||'']),y,[148,34],true);
+  y=aandachtspunten(ELV.map(it=>({key:it.k,naam:it.t,grade:oor[it.k]})),y);
 
   y=sec('2. Rookmelders',y);
   if(rmList.length){
@@ -305,11 +339,13 @@ export async function generatePDF() {
       doc.setTextColor(0,0,0);y+=RH;
     });
     y+=2;
+    y=aandachtspunten(rmList.map((r,i)=>({key:'rm_'+i,naam:'Rookmelder '+(r.loc||('0'+(i+1))),grade:r.oo})),y);
   }else{y=chk(y,7);doc.setFont('helvetica','italic');doc.setFontSize(7.5);doc.setTextColor(150,150,150);doc.text('Geen rookmelders ingevoerd.',ML,y+4);doc.setTextColor(0,0,0);y+=8;}
 
   y=fotorij(['water_l','water_a'],y,40);
   y=sec('3. Leidingwaterinstallatie',y);
   y=tbl(['Aspect','Oordeel'],WTV.map(it=>[it.t,oor[it.k]||'']),y,[148,34],true);
+  y=aandachtspunten(WTV.map(it=>({key:it.k,naam:it.t,grade:oor[it.k]})),y);
   y=sec('Temperatuurmetingen & water',y);
   y=tbl4([
     ['Koudwater (°C)',gv('kw_t')||'-','Circulerend systeem',jnS['circ']||'-'],
@@ -320,6 +356,7 @@ export async function generatePDF() {
   y=fotorij(['gas_m','gas_k'],y,40);
   y=sec('4. Gasinstallatie',y);
   y=tbl(['Aspect','Oordeel'],GSV.map(it=>[it.t,oor[it.k]||'']),y,[148,34],true);
+  y=aandachtspunten(GSV.map(it=>({key:it.k,naam:it.t,grade:oor[it.k]})),y);
 
   y=sec('Meetinstrumenten',y);
   const instrR=[];

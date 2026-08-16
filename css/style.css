@@ -148,6 +148,10 @@ input.ai-suggestie { border-color: var(--blue); background: rgba(19,123,255,.10)
 .eml-box { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 22px; width: 100%; max-width: 460px; box-shadow: 0 24px 60px rgba(0,0,0,.5); }
 .eml-titel { font-weight: 700; font-size: 17px; color: var(--text); margin-bottom: 14px; }
 
+/* STAP-CHECK MODAL (waarschuwing bij onvolledige stap) - zelfde uiterlijk als #eml */
+#stap-check { display: none; position: fixed; inset: 0; background: rgba(2,11,24,.75); z-index: 999; align-items: center; justify-content: center; padding: 16px; }
+#stap-check.on { display: flex; }
+
 /* INSPECTIE AFGEROND (verzend-succes) */
 .succes-icon { width: 88px; height: 88px; border-radius: 44px; margin: 4px auto 18px; background: linear-gradient(160deg,var(--blue-grad),var(--blue-dark)); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 8px rgba(19,123,255,.10), 0 0 34px rgba(19,123,255,.40); }
 .succes-titel { font-weight: 700; font-size: 19px; color: var(--text); text-align: center; letter-spacing: -.02em; }

@@ -13,7 +13,7 @@ import './autosave.js';
 import { pinKey, pinDel } from './auth.js';
 import {
   naarTab, laadFoto, addALS, addRM, setCon, clearSign, initSign,
-  buildOor, ELC, ELV, WTV, GSV, rmList
+  buildOor, ELC, ELV, WTV, GSV, rmList, sluitStapCheck, stapTochDoorgaan
 } from './form.js';
 import {
   openPDF, sluitPDF, downloadPDF, openEmail, sluitEmail, verstuur, verstuurWhatsApp
@@ -23,6 +23,7 @@ import {
 const ACTIES = {
   pinKey, pinDel, addALS, addRM, setCon, clearSign,
   openPDF, sluitPDF, downloadPDF, openEmail, sluitEmail, verstuur, verstuurWhatsApp,
+  sluitStapCheck, stapTochDoorgaan,
   naarTab: n => naarTab(parseInt(n, 10))
 };
 document.addEventListener('click', e => {

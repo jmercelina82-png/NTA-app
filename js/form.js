@@ -4,10 +4,10 @@
 // live export-bindingen hieronder.
 import { huidigId } from './state.js';
 import { cancelPendingSave, serverSave } from './autosave.js';
-import { gv } from './utils.js';
+import { gv, esc } from './utils.js';
 import { triggerOcrSuggestie } from './ocr.js';
 
-export let jnS={}, oor={}, alsList=[], rmList=[], con=null, fotos={};
+export let jnS={}, oor={}, oorReden={}, alsList=[], rmList=[], con=null, fotos={};
 let signing=false, sCtx=null;
 
 // OORDEEL DATA
@@ -47,13 +47,80 @@ export const GSV=[
 ];
 
 // TABS
-export function naarTab(n) {
+// Bij het één stap vooruit gaan (via "Volgende" of de eerstvolgende tab-pil)
+// wordt eerst gecontroleerd of de huidige stap volledig is (zie
+// checkStapVolledig hieronder). Ontbreekt er iets, dan verschijnt een
+// waarschuwende popup i.p.v. direct door te navigeren - de gebruiker kan
+// alsnog kiezen om door te gaan (stapTochDoorgaan). Terug- of tab-pil-sprongen
+// die niet "één stap vooruit" zijn, blijven ongehinderd werken.
+let pendingTab = null;
+export function naarTab(n, force=false) {
+ const huidige = [...document.querySelectorAll('.pg')].findIndex(p => p.classList.contains('on'));
+ if (!force && huidige >= 0 && huidige <= 3 && n === huidige + 1) {
+ const missend = checkStapVolledig(huidige);
+ if (missend.length) { toonStapCheck(missend, n); return; }
+ }
  document.querySelectorAll('.pg').forEach((p,i) => p.classList.toggle('on', i===n));
  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('on', i===n));
  window.scrollTo(0,0);
  if (huidigId) { cancelPendingSave(); serverSave(); }
 }
 document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', function(){ naarTab(parseInt(this.dataset.tab)); }));
+
+function toonStapCheck(missend, n) {
+ pendingTab = n;
+ document.getElementById('stap-check-lijst').innerHTML = missend.map(m => `<div style="padding:4px 0;">• ${esc(m)}</div>`).join('');
+ document.getElementById('stap-check').classList.add('on');
+}
+export function sluitStapCheck() {
+ document.getElementById('stap-check').classList.remove('on');
+ pendingTab = null;
+}
+export function stapTochDoorgaan() {
+ const n = pendingTab;
+ sluitStapCheck();
+ if (n !== null) naarTab(n, true);
+}
+
+// Menselijk leesbare labels voor JA/NEE/NVT-groepen (data-g), voor gebruik in
+// de "nog niet alles ingevuld"-popup.
+const JNG_LABELS = {
+ bescherming: 'Bescherming tegen elektrische schok', wg: 'Waterleiding geaard',
+ gg: 'Gasleiding geaard', kwg: 'Koud water badkamer geaard', rg: 'Radiator badkamer geaard',
+ cap: 'CAP aanwezig badkamer', circ: 'Circulerend systeem', vv: 'Voorraadvat'
+};
+
+// Controleert of alle keuzeknoppen (oordeel + JA/NEE/NVT) van de gegeven stap
+// zijn ingevuld, en of elk als "Enig" of "Ernstig bezwaar" gemarkeerd item een
+// toelichting én foto heeft. Geeft een lijst ontbrekende punten terug (leeg =
+// stap compleet).
+function checkStapVolledig(tab) {
+ const missend = [];
+ const oordeelCheck = items => items.forEach(it => {
+ const v = oor[it.k];
+ if (!v) { missend.push(`Oordeel ontbreekt: ${it.t}`); return; }
+ if (v === 'e' || v === 'r') {
+ if (!oorReden[it.k] || !oorReden[it.k].trim()) missend.push(`Toelichting ontbreekt: ${it.t}`);
+ if (!fotos['oor_' + it.k] || !fotos['oor_' + it.k].length) missend.push(`Foto ontbreekt: ${it.t}`);
+ }
+ });
+ const jngCheck = groups => groups.forEach(g => { if (!jnS[g]) missend.push(`Nog niet beantwoord: ${JNG_LABELS[g] || g}`); });
+
+ if (tab === 0) jngCheck(['bescherming','wg','gg','kwg','rg','cap']);
+ if (tab === 1) {
+ oordeelCheck(ELC); oordeelCheck(ELV);
+ rmList.forEach((rm,i) => {
+ if (rm.oo === 'e' || rm.oo === 'r') {
+ const key = 'rm_' + i, naam = 'Rookmelder ' + (rm.loc || ('0' + (i+1)));
+ if (!oorReden[key] || !oorReden[key].trim()) missend.push(`Toelichting ontbreekt: ${naam}`);
+ if (!fotos['oor_' + key] || !fotos['oor_' + key].length) missend.push(`Foto ontbreekt: ${naam}`);
+ }
+ });
+ }
+ if (tab === 2) { oordeelCheck(WTV); jngCheck(['circ','vv']); }
+ if (tab === 3) { oordeelCheck(GSV); }
+ return missend;
+}
 
 // FOTOS - simpel via label/input, onchange handler
 export function laadFoto(input, key) {
@@ -78,6 +145,31 @@ export function laadFoto(input, key) {
  reader.readAsDataURL(file);
 }
 
+// TOELICHTING + FOTO bij "Enig"/"Ernstig bezwaar" - gedeeld tussen de
+// reguliere oordeel-items (buildOor) en rookmelders (addRM), die elk hun
+// eigen opslagmodel hebben maar dezelfde uitklap-UI en dezelfde oorReden-/
+// fotos-sleutel-conventie ("oor_<key>") gebruiken.
+function oorExtraHTML(key) {
+ return `<div class="oor-extra" id="oor-extra-${key}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);">
+ <label class="lb">Toelichting</label>
+ <textarea data-oor-reden="${key}" placeholder="Beschrijf het probleem..."></textarea>
+ <div class="foto-vak">
+ <label class="foto-label" style="font-size:12px;padding:9px;">Foto
+ <input type="file" accept="image/*" capture="environment" data-act="laadFoto" data-arg="oor_${key}">
+ </label>
+ <div class="foto-preview" id="fp-oor_${key}"></div>
+ </div>
+ </div>`;
+}
+function wireOorExtra(container, key) {
+ const ta = container.querySelector(`[data-oor-reden="${key}"]`);
+ if (ta) ta.addEventListener('input', function(){ oorReden[key] = this.value; });
+}
+function toggleOorExtra(key, v) {
+ const el = document.getElementById(`oor-extra-${key}`);
+ if (el) el.style.display = (v === 'e' || v === 'r') ? 'block' : 'none';
+}
+
 // OORDEEL BUILDER
 export function buildOor(id, items) {
  const c = document.getElementById(id); if(!c) return;
@@ -91,12 +183,15 @@ export function buildOor(id, items) {
  <button class="ob" data-k="${item.k}" data-v="e">Enig</button>
  <button class="ob" data-k="${item.k}" data-v="r">Ernstig</button>
  <button class="ob" data-k="${item.k}" data-v="n">NVT</button>
- </div>`;
+ </div>
+ ${oorExtraHTML(item.k)}`;
  d.querySelectorAll('.ob').forEach(btn => btn.addEventListener('click', function(){
  oor[this.dataset.k] = this.dataset.v;
  this.closest('.oor-btns').querySelectorAll('.ob').forEach(b => b.className='ob');
  this.classList.add('on-'+this.dataset.v);
+ toggleOorExtra(this.dataset.k, this.dataset.v);
  }));
+ wireOorExtra(d, item.k);
  c.appendChild(d);
  });
 }
@@ -163,7 +258,8 @@ export function addRM() {
  <button class="jnb" data-rmwi="${i}" data-rmwv="NEE" data-rmwcls="on-nee">NEE</button>
  </div>
  </div>
- </div>`;
+ </div>
+ ${oorExtraHTML('rm_'+i)}`;
  d.querySelectorAll('[data-rm-field]').forEach(inp => inp.addEventListener('input', function(){
  rmList[parseInt(this.dataset.rmIdx)][this.dataset.rmField] = this.value;
  }));
@@ -172,6 +268,7 @@ export function addRM() {
  rmList[idx].oo=v;
  this.closest('.oor-btns').querySelectorAll('.ob').forEach(x=>x.className='ob');
  this.classList.add('on-'+v);
+ toggleOorExtra('rm_'+idx, v);
  }));
  d.querySelectorAll('[data-rmwi]').forEach(b => b.addEventListener('click', function(){
  const idx=parseInt(this.dataset.rmwi), v=this.dataset.rmwv;
@@ -179,6 +276,7 @@ export function addRM() {
  this.closest('.jng').querySelectorAll('.jnb').forEach(x=>x.className='jnb');
  this.classList.add(this.dataset.rmwcls||'on');
  }));
+ wireOorExtra(d, 'rm_'+i);
  document.getElementById('rm-lijst').appendChild(d);
 }
 
@@ -250,7 +348,7 @@ export function leesFormulierData() {
  const f = {};
  FLD.forEach(id => { const el=document.getElementById(id); if(el) f[id]=el.value; });
  return {
- f, jnS: {...jnS}, oor: {...oor},
+ f, jnS: {...jnS}, oor: {...oor}, oorReden: {...oorReden},
  als: alsList.map(a => ({...a})), rm: rmList.map(r => ({...r})), con,
  fotos: Object.fromEntries(Object.keys(fotos).map(k => [k, fotos[k].map(p => ({d:p.d, l:p.l}))]))
  };
@@ -282,12 +380,16 @@ export function vulFormulier(w) {
  });
  // Oordelen
  oor = {...(w.oor||{})};
+ oorReden = {...(w.oorReden||{})};
  buildOor('el-checks',ELC); buildOor('el-vis',ELV);
  buildOor('water-vis',WTV); buildOor('gas-vis',GSV);
- // Herstel oordeel visueel
+ // Herstel oordeel visueel + toelichting/foto-uitklap
  Object.entries(oor).forEach(([k,v]) => {
  const btn = document.querySelector(`.ob[data-k="${k}"][data-v="${v}"]`);
  if (btn) { btn.closest('.oor-btns').querySelectorAll('.ob').forEach(b=>b.className='ob'); btn.classList.add('on-'+v); }
+ toggleOorExtra(k, v);
+ const ta = document.querySelector(`[data-oor-reden="${k}"]`);
+ if (ta) ta.value = oorReden[k] || '';
  });
  // ALS
  alsList = (w.als||[]).map(a=>({...a}));
@@ -308,6 +410,16 @@ export function vulFormulier(w) {
  document.querySelectorAll('#rm-lijst .rm-item').forEach((el,i) => {
  const inp = el.querySelector('input[type=text]');
  if (inp) inp.value = rmList[i]?.loc || '';
+ const rm = rmList[i]; if (!rm) return;
+ // Oordeel- en werkt-knoppen visueel herstellen (voorheen bleef hier altijd
+ // de default "Geen"/"JA" te zien staan, los van de echte opgeslagen waarde).
+ const oordeelBtn = el.querySelector(`.ob[data-rmi="${i}"][data-rmv="${rm.oo}"]`);
+ if (oordeelBtn) { el.querySelectorAll('.ob').forEach(b=>b.className='ob'); oordeelBtn.classList.add('on-'+rm.oo); }
+ const werktBtn = el.querySelector(`[data-rmwi="${i}"][data-rmwv="${rm.werkt}"]`);
+ if (werktBtn) { el.querySelectorAll('.jnb').forEach(b=>b.className='jnb'); werktBtn.classList.add(werktBtn.dataset.rmwcls||'on'); }
+ toggleOorExtra('rm_'+i, rm.oo);
+ const ta = el.querySelector(`[data-oor-reden="rm_${i}"]`);
+ if (ta) ta.value = oorReden['rm_'+i] || '';
  });
  // Conclusie
  con = w.con || null;
@@ -337,7 +449,7 @@ export function resetFormulier() {
  document.getElementById('plaats').value = 'Den Haag';
  document.getElementById('instr1').value = 'FLUKE 1662';
  document.getElementById('instr2').value = 'BLUELINE';
- jnS={}; oor={}; con=null; fotos={};
+ jnS={}; oor={}; oorReden={}; con=null; fotos={};
  document.querySelectorAll('.jnb[data-g]').forEach(b=>b.className='jnb');
  ['g','e','r'].forEach(k=>{const b=document.getElementById('cb-'+k);if(b)b.className='con-btn';});
  buildOor('el-checks',ELC); buildOor('el-vis',ELV);
