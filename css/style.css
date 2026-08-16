@@ -220,6 +220,7 @@ input.ai-suggestie { border-color: var(--blue); background: rgba(19,123,255,.10)
 .dh { position: relative; display: flex; align-items: center; gap: 11px; padding: 16px 20px; }
 .dh img { width: 40px; height: 40px; background: white; border-radius: 11px; padding: 3px; object-fit: contain; box-shadow: 0 0 0 1px rgba(19,123,255,.35), 0 0 22px rgba(19,123,255,.28); flex-shrink: 0; }
 .dh-titel { font-weight: 800; font-size: 15px; color: var(--text); letter-spacing: -.01em; }
+.dh-sub { font-size: 9.5px; font-weight: 600; color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
 .dh-datum { font-size: 10.5px; color: var(--muted); margin-top: 2px; text-transform: capitalize; }
 .db { position: relative; max-width: 600px; margin: 0 auto; padding: 6px 16px 60px; }
 .dstats { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; margin-bottom: 22px; }
