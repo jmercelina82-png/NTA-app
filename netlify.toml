@@ -5,3 +5,12 @@
 # bepaald in netlify/functions/send-email.js (op basis van ALLOWED_ORIGINS env var),
 # in plaats van hier globaal op '*' gezet te worden. Zo kan alleen jouw eigen
 # app-domein de mailfunctie daadwerkelijk aanroepen.
+
+# CSP als echte response-header i.p.v. <meta>-tag in index.html: sterker (o.a.
+# frame-ancestors werkt niet via een meta-tag), en dekt ook non-HTML responses.
+# Zelfde policy-inhoud als voorheen in de meta-tag, plus frame-ancestors 'none'
+# (deze app hoeft nooit door een andere pagina in een iframe getoond te worden).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self';"
