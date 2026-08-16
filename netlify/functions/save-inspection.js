@@ -105,25 +105,25 @@ exports.handler = async function (event) {
       return { statusCode: 409, headers, body: JSON.stringify({ error: 'Rapport is al verzonden en kan niet meer bewerkt worden' }) };
     }
 
-    // Het formulier stuurt het rapportnummer als onderdeel van f (net als adres/plaats/etc),
-    // niet als los top-level veld - dat is waar de client 'm ook vandaan leest/toont.
-    const clientRapportnummer = body.f && body.f.rapportnummer;
-    const rapportnummer = typeof clientRapportnummer === 'string' && clientRapportnummer.trim()
-      ? clientRapportnummer.trim()
-      : bestaand.rapportnummer;
-
+    // Rapportnummer is server-only en onveranderlijk zodra het is toegekend
+    // (bij aanmaken, via claimEnBewaarRapportnummer). Een door de client
+    // meegestuurd rapportnummer wordt hier volledig genegeerd - ook al stuurt
+    // het formulier het als onderdeel van f (net als adres/plaats/etc, waar
+    // de client 'm ook vandaan leest/toont), dat mag nooit het oorspronkelijk
+    // toegekende nummer overschrijven.
     const rec = {
       ...bestaand,
       ...schoonFormData(body),
       id: bestaand.id,
-      rapportnummer,
+      rapportnummer: bestaand.rapportnummer,
       status: bestaand.status,
       aangemaakt: bestaand.aangemaakt,
       verzonden: bestaand.verzonden,
       laatstGewijzigd: now
     };
+    rec.f.rapportnummer = bestaand.rapportnummer;
     await store.setJSON(inspectieKey(bestaand.id), rec);
-    return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: rec.id, rapportnummer, laatstGewijzigd: now }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ success: true, id: rec.id, rapportnummer: rec.rapportnummer, laatstGewijzigd: now }) };
   } catch (err) {
     console.error('save-inspection fout:', err.message);
     return { statusCode: 500, headers, body: JSON.stringify({ error: 'Kon inspectie niet opslaan' }) };
