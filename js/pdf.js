@@ -2,7 +2,7 @@
 // die twee horen inhoudelijk samen (de PDF wordt als bijlage meegestuurd) en
 // stonden ook in de oorspronkelijke index.html direct na elkaar.
 import { jnS, oor, con, fotos, alsList, rmList, ELC, ELV, WTV, GSV, getSign, valideerVoorVersturen } from './form.js';
-import { gv, LOGO, comprimeerFotos } from './utils.js';
+import { gv, LOGO, comprimeerFotos, esc } from './utils.js';
 import { huidigId } from './state.js';
 import { _PS } from './auth.js';
 import { sendEmailRequest } from './api.js';
@@ -518,13 +518,13 @@ export async function verstuurWhatsApp(){
     a.href = url; a.download = fn; a.click();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 
-    toonStatus('PDF gedownload als <strong>' + fn + '</strong><br>WhatsApp opent — voeg de PDF toe via de paperclip.');
+    toonStatus('PDF gedownload als <strong>' + esc(fn) + '</strong><br>WhatsApp opent — voeg de PDF toe via de paperclip.');
     setTimeout(() => {
       window.open('https://wa.me/?text=' + encodeURIComponent(tekst), '_blank');
     }, 1000);
 
   } catch(err) {
-    toonStatus('Fout: ' + err.message, false);
+    toonStatus('Fout: ' + esc(err.message), false);
   }
 }
 

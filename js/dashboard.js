@@ -6,6 +6,7 @@ import { naarTab, resetFormulier, vulFormulier } from './form.js';
 import { openPDF, openEmail } from './pdf.js';
 import { listInspectionsRequest, getInspectionRequest, saveInspectionRequest, deleteInspectionRequest } from './api.js';
 import { haalLokaleKopie, probeerSync } from './offline.js';
+import { esc } from './utils.js';
 
 let dashData = [];
 let alleFilter = 'alle'; // 'alle' | 'concept' | 'afgerond' - status-filter van het "Alle inspecties"-scherm
@@ -68,8 +69,8 @@ function renderDash() {
  div.innerHTML = `
  <div class="wdot wdot-${stC}"></div>
  <div class="wi">
- <div class="wa">${adr}</div>
- <div class="wm">${w.rapportnummer||''} · ${w.datum||''} · ${w.voortgang}</div>
+ <div class="wa">${esc(adr)}</div>
+ <div class="wm">${esc(w.rapportnummer||'')} · ${esc(w.datum||'')} · ${esc(w.voortgang)}</div>
  </div>
  <span class="wb wb-${stC}">${stL}</span>
  <button class="wbtn" data-lid="${w.id}">${isA ? 'Verder' : 'Open'}</button>
@@ -89,8 +90,8 @@ function renderDash() {
  div.innerHTML = `
  <div class="wdot wdot-k"></div>
  <div class="wi">
- <div class="wa">${w.adres||''}</div>
- <div class="wm">${w.rapportnummer||''} · ${w.datum||''}</div>
+ <div class="wa">${esc(w.adres||'')}</div>
+ <div class="wm">${esc(w.rapportnummer||'')} · ${esc(w.datum||'')}</div>
  </div>
  <span class="wb wb-k">Afgerond</span>
  <button class="wbtn" data-aid="${w.id}">Bekijk</button>
@@ -124,11 +125,11 @@ export function toonArchiefDetail(w) {
  const cL = w.con==='g'?'Geen bezwaar': w.con==='e'?'Enig bezwaar': w.con==='r'?'Ernstig bezwaar':'Onbekend';
  const verz = w.verzonden ? new Date(w.verzonden).toLocaleString('nl-NL') : '-';
  document.getElementById('archief-detail-inhoud').innerHTML = `
- <div class="arch-rij"><span class="lb2">Rapportnummer</span><span class="wa">${w.rapportnummer||''}</span></div>
- <div class="arch-rij"><span class="lb2">Adres</span><span class="wa">${w.adres||''}, ${w.plaats||''}</span></div>
- <div class="arch-rij"><span class="lb2">Datum keuring</span><span class="wa">${w.datum||''}</span></div>
- <div class="arch-rij"><span class="lb2">Opdrachtgever</span><span class="wa">${w.opdrachtgever||''}</span></div>
- <div class="arch-rij"><span class="lb2">Inspecteur</span><span class="wa">${w.inspecteur||''}</span></div>
+ <div class="arch-rij"><span class="lb2">Rapportnummer</span><span class="wa">${esc(w.rapportnummer||'')}</span></div>
+ <div class="arch-rij"><span class="lb2">Adres</span><span class="wa">${esc(w.adres||'')}, ${esc(w.plaats||'')}</span></div>
+ <div class="arch-rij"><span class="lb2">Datum keuring</span><span class="wa">${esc(w.datum||'')}</span></div>
+ <div class="arch-rij"><span class="lb2">Opdrachtgever</span><span class="wa">${esc(w.opdrachtgever||'')}</span></div>
+ <div class="arch-rij"><span class="lb2">Inspecteur</span><span class="wa">${esc(w.inspecteur||'')}</span></div>
  <div class="arch-rij"><span class="lb2">Eindoordeel</span><span class="wa">${cL}</span></div>
  <div class="arch-rij"><span class="lb2">Verzonden</span><span class="wa">${verz}</span></div>
  <div style="display:flex;gap:8px;margin-top:16px;">
@@ -256,8 +257,8 @@ function renderAlleLijst() {
  div.innerHTML = `
  <div class="wdot wdot-${stC}"></div>
  <div class="wi">
- <div class="wa">${adr}</div>
- <div class="wm">${w.rapportnummer || ''} · ${w.datum || ''}${isAfgerond ? '' : ' · ' + w.voortgang}</div>
+ <div class="wa">${esc(adr)}</div>
+ <div class="wm">${esc(w.rapportnummer || '')} · ${esc(w.datum || '')}${isAfgerond ? '' : ' · ' + esc(w.voortgang)}</div>
  </div>
  <span class="wb wb-${stC}">${stL}</span>
  <button class="wbtn" data-open>${isAfgerond ? 'Bekijk' : (isA ? 'Verder' : 'Open')}</button>

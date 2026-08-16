@@ -5,6 +5,15 @@ export const LOGO = 'data:image/png;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/4gHYSUNDX
 
 export function gv(id){return(document.getElementById(id)||{}).value||'';}
 
+// Escaped tekst voor gebruik in innerHTML-template-strings. Velden als adres/
+// opdrachtgever/rapportnummer komen uit gebruikersinvoer en gaan op meerdere
+// plekken (dashboard, archiefweergave) via innerHTML de DOM in - zonder dit
+// zou bv. <img src=x onerror=...> in een adresveld als opgeslagen XSS
+// uitgevoerd worden bij iedereen die het dashboard opent.
+export function esc(s) {
+ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 // Comprimeer fotos voor email-PDF (camera-fotos zijn vaak 3-8MB, te groot voor Netlify 6MB limiet)
 export async function comprimeerFotos(obj, maxW=480, quality=0.60) {
   const out={};

@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';">
 <title>FSB NTA 8025 v10</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin="anonymous"></script>
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -22,18 +22,18 @@
     <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-    <button class="pin-key" onclick="pinKey('1')">1</button>
-    <button class="pin-key" onclick="pinKey('2')">2</button>
-    <button class="pin-key" onclick="pinKey('3')">3</button>
-    <button class="pin-key" onclick="pinKey('4')">4</button>
-    <button class="pin-key" onclick="pinKey('5')">5</button>
-    <button class="pin-key" onclick="pinKey('6')">6</button>
-    <button class="pin-key" onclick="pinKey('7')">7</button>
-    <button class="pin-key" onclick="pinKey('8')">8</button>
-    <button class="pin-key" onclick="pinKey('9')">9</button>
+    <button class="pin-key" data-act="pinKey" data-arg="1">1</button>
+    <button class="pin-key" data-act="pinKey" data-arg="2">2</button>
+    <button class="pin-key" data-act="pinKey" data-arg="3">3</button>
+    <button class="pin-key" data-act="pinKey" data-arg="4">4</button>
+    <button class="pin-key" data-act="pinKey" data-arg="5">5</button>
+    <button class="pin-key" data-act="pinKey" data-arg="6">6</button>
+    <button class="pin-key" data-act="pinKey" data-arg="7">7</button>
+    <button class="pin-key" data-act="pinKey" data-arg="8">8</button>
+    <button class="pin-key" data-act="pinKey" data-arg="9">9</button>
     <span></span>
-    <button class="pin-key" onclick="pinKey('0')">0</button>
-    <button class="pin-key" onclick="pinDel()" style="font-size:18px;">&#x232B;</button>
+    <button class="pin-key" data-act="pinKey" data-arg="0">0</button>
+    <button class="pin-key" data-act="pinDel" style="font-size:18px;">&#x232B;</button>
   </div>
   <div id="pin-err" style="color:#ff8080;font-size:13px;margin-top:18px;min-height:18px;font-weight:600;text-align:center;"></div>
 </div>
@@ -126,7 +126,7 @@
  <div class="foto-vak">
  <label class="foto-label">
  Foto maken / kiezen
- <input type="file" accept="image/*" capture="environment" id="f-voordeur" onchange="laadFoto(this,'voordeur')">
+ <input type="file" accept="image/*" capture="environment" id="f-voordeur" data-act="laadFoto" data-arg="voordeur">
  </label>
  <div class="foto-preview" id="fp-voordeur"></div>
  </div>
@@ -159,7 +159,7 @@
  <div class="foto-vak">
  <label class="foto-label" style="font-size:12px;padding:9px;">
  Foto
- <input type="file" accept="image/*" capture="environment" id="f-ms1" onchange="laadFoto(this,'ms1')">
+ <input type="file" accept="image/*" capture="environment" id="f-ms1" data-act="laadFoto" data-arg="ms1">
  </label>
  <div class="foto-preview" id="fp-ms1"></div>
  </div>
@@ -170,7 +170,7 @@
  <div class="foto-vak">
  <label class="foto-label" style="font-size:12px;padding:9px;">
  Foto
- <input type="file" accept="image/*" capture="environment" id="f-ms2" onchange="laadFoto(this,'ms2')">
+ <input type="file" accept="image/*" capture="environment" id="f-ms2" data-act="laadFoto" data-arg="ms2">
  </label>
  <div class="foto-preview" id="fp-ms2"></div>
  </div>
@@ -181,7 +181,7 @@
  <div class="foto-vak">
  <label class="foto-label" style="font-size:12px;padding:9px;">
  Foto
- <input type="file" accept="image/*" capture="environment" id="f-msgas" onchange="laadFoto(this,'msgas')">
+ <input type="file" accept="image/*" capture="environment" id="f-msgas" data-act="laadFoto" data-arg="msgas">
  </label>
  <div class="foto-preview" id="fp-msgas"></div>
  <div class="ocr-status" id="ocr-status-msgas"></div>
@@ -229,7 +229,7 @@
  </div>
  </div>
 
- <div class="nav"><span></span><button class="btn-blauw" onclick="naarTab(1)">Volgende </button></div>
+ <div class="nav"><span></span><button class="btn-blauw" data-act="naarTab" data-arg="1">Volgende </button></div>
 </div>
 
 <!-- STAP 1 -->
@@ -239,7 +239,7 @@
  <div class="card-title"> Foto meterkast</div>
  <label class="foto-label">
  Foto maken / kiezen
- <input type="file" accept="image/*" capture="environment" id="f-meterkast" onchange="laadFoto(this,'meterkast')">
+ <input type="file" accept="image/*" capture="environment" id="f-meterkast" data-act="laadFoto" data-arg="meterkast">
  </label>
  <div class="foto-preview" id="fp-meterkast"></div>
  </div>
@@ -270,18 +270,18 @@
  <div class="card">
  <div class="card-title"> Aardlekschakelaar(s)</div>
  <div id="als-lijst"></div>
- <button class="btn-toevoegen" onclick="addALS()">+ ALS toevoegen</button>
+ <button class="btn-toevoegen" data-act="addALS">+ ALS toevoegen</button>
  </div>
 
  <div class="card">
  <div class="card-title"> 2. Rookmelders</div>
  <div id="rm-lijst"></div>
- <button class="btn-toevoegen" onclick="addRM()">+ Rookmelder toevoegen</button>
+ <button class="btn-toevoegen" data-act="addRM">+ Rookmelder toevoegen</button>
  </div>
 
  <div class="nav">
- <button class="btn-wit" onclick="naarTab(0)"> Terug</button>
- <button class="btn-blauw" onclick="naarTab(2)">Volgende </button>
+ <button class="btn-wit" data-act="naarTab" data-arg="0"> Terug</button>
+ <button class="btn-blauw" data-act="naarTab" data-arg="2">Volgende </button>
  </div>
 </div>
 
@@ -295,7 +295,7 @@
  <label class="lb">Leidingwerk</label>
  <label class="foto-label" style="font-size:13px;padding:10px;">
  Foto
- <input type="file" accept="image/*" capture="environment" id="f-water_l" onchange="laadFoto(this,'water_l')">
+ <input type="file" accept="image/*" capture="environment" id="f-water_l" data-act="laadFoto" data-arg="water_l">
  </label>
  <div class="foto-preview" id="fp-water_l"></div>
  </div>
@@ -303,7 +303,7 @@
  <label class="lb">Hoofdafsluiter</label>
  <label class="foto-label" style="font-size:13px;padding:10px;">
  Foto
- <input type="file" accept="image/*" capture="environment" id="f-water_a" onchange="laadFoto(this,'water_a')">
+ <input type="file" accept="image/*" capture="environment" id="f-water_a" data-act="laadFoto" data-arg="water_a">
  </label>
  <div class="foto-preview" id="fp-water_a"></div>
  </div>
@@ -343,8 +343,8 @@
  </div>
 
  <div class="nav">
- <button class="btn-wit" onclick="naarTab(1)"> Terug</button>
- <button class="btn-blauw" onclick="naarTab(3)">Volgende </button>
+ <button class="btn-wit" data-act="naarTab" data-arg="1"> Terug</button>
+ <button class="btn-blauw" data-act="naarTab" data-arg="3">Volgende </button>
  </div>
 </div>
 
@@ -358,7 +358,7 @@
  <label class="lb">Gasmeter / leidingwerk</label>
  <label class="foto-label" style="font-size:13px;padding:10px;">
  Foto
- <input type="file" accept="image/*" capture="environment" id="f-gas_m" onchange="laadFoto(this,'gas_m')">
+ <input type="file" accept="image/*" capture="environment" id="f-gas_m" data-act="laadFoto" data-arg="gas_m">
  </label>
  <div class="foto-preview" id="fp-gas_m"></div>
  </div>
@@ -366,7 +366,7 @@
  <label class="lb">CV-ketel</label>
  <label class="foto-label" style="font-size:13px;padding:10px;">
  Foto
- <input type="file" accept="image/*" capture="environment" id="f-gas_k" onchange="laadFoto(this,'gas_k')">
+ <input type="file" accept="image/*" capture="environment" id="f-gas_k" data-act="laadFoto" data-arg="gas_k">
  </label>
  <div class="foto-preview" id="fp-gas_k"></div>
  </div>
@@ -389,8 +389,8 @@
  </div>
 
  <div class="nav">
- <button class="btn-wit" onclick="naarTab(2)"> Terug</button>
- <button class="btn-blauw" onclick="naarTab(4)">Volgende </button>
+ <button class="btn-wit" data-act="naarTab" data-arg="2"> Terug</button>
+ <button class="btn-blauw" data-act="naarTab" data-arg="4">Volgende </button>
  </div>
 </div>
 
@@ -400,9 +400,9 @@
  <div class="card">
  <div class="card-title"> Eindconclusie</div>
  <div class="con-btns">
- <button class="con-btn" id="cb-g" onclick="setCon('g')"> Geen bezwaar</button>
- <button class="con-btn" id="cb-e" onclick="setCon('e')"> Enig bezwaar</button>
- <button class="con-btn" id="cb-r" onclick="setCon('r')"> Ernstig bezwaar</button>
+ <button class="con-btn" id="cb-g" data-act="setCon" data-arg="g"> Geen bezwaar</button>
+ <button class="con-btn" id="cb-e" data-act="setCon" data-arg="e"> Enig bezwaar</button>
+ <button class="con-btn" id="cb-r" data-act="setCon" data-arg="r"> Ernstig bezwaar</button>
  </div>
  <label class="lb">Afgetekend op</label>
  <input type="date" id="aft_dat">
@@ -414,16 +414,16 @@
  <div class="card-title"> Handtekening inspecteur</div>
  <div class="sgn-wrap">
  <canvas id="sgn" width="800" height="240"></canvas>
- <button class="sgn-wis" onclick="clearSign()">Wis</button>
+ <button class="sgn-wis" data-act="clearSign">Wis</button>
  </div>
  <p style="font-size:12px;color:#888;margin-top:6px;">Teken met vinger of muis</p>
  </div>
 
  <div class="nav">
- <button class="btn-wit" onclick="naarTab(3)"> Terug</button>
+ <button class="btn-wit" data-act="naarTab" data-arg="3"> Terug</button>
  <div class="nav-r">
- <button class="btn-blauw" onclick="openPDF()"> PDF</button>
- <button class="btn-groen" onclick="openEmail()"> Verstuur</button>
+ <button class="btn-blauw" data-act="openPDF"> PDF</button>
+ <button class="btn-groen" data-act="openEmail"> Verstuur</button>
  </div>
  </div>
 </div>
@@ -442,9 +442,9 @@
       <button class="btn-blauw" id="btn-na-verzenden-dash" style="width:100%;">Naar dashboard</button>
     </div>
     <div id="eml-acties" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-      <button class="btn-wit" onclick="sluitEmail()">Annuleren</button>
-      <button style="background:#25D366;color:white;border:none;padding:12px 18px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;flex:1;" onclick="verstuurWhatsApp()">WhatsApp</button>
-      <button class="btn-groen" id="btn-dosend" onclick="verstuur()" style="flex:1;">Email + PDF</button>
+      <button class="btn-wit" data-act="sluitEmail">Annuleren</button>
+      <button style="background:#25D366;color:white;border:none;padding:12px 18px;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;flex:1;" data-act="verstuurWhatsApp">WhatsApp</button>
+      <button class="btn-groen" id="btn-dosend" data-act="verstuur" style="flex:1;">Email + PDF</button>
     </div>
   </div>
 </div>
@@ -452,9 +452,9 @@
 <!-- PDF -->
 <div id="pov">
  <div class="ptb">
- <button class="btn-blauw" onclick="downloadPDF()"> Download PDF</button>
- <button class="btn-groen" onclick="openEmail()"> Verstuur</button>
- <button style="background:#e74c3c;color:white;border:none;padding:10px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;" onclick="sluitPDF()"> Sluiten</button>
+ <button class="btn-blauw" data-act="downloadPDF"> Download PDF</button>
+ <button class="btn-groen" data-act="openEmail"> Verstuur</button>
+ <button style="background:#e74c3c;color:white;border:none;padding:10px 16px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;" data-act="sluitPDF"> Sluiten</button>
  </div>
  <div class="pdoc" id="pdoc"></div>
 </div>

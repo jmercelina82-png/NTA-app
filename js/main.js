@@ -1,7 +1,10 @@
 // Entry point: importeert alle modules (waarmee ook hun eigen top-level
 // event-listener-koppelingen lopen), draait de opstart-initialisatie van het
-// formulier, en hangt de functies die nog vanuit inline onclick/onchange-
-// attributen in de HTML aangeroepen worden aan window.
+// formulier, en koppelt de acties die vroeger via inline onclick/onchange-
+// attributen liepen aan data-act/data-arg (zie index.html). Geen window.*-
+// exposure meer nodig - dit maakt een CSP zonder 'unsafe-inline' voor
+// script-src mogelijk (index.html), wat opgeslagen-XSS via geïnjecteerde
+// event-handler-attributen (bv. <img onerror=...>) blokkeert.
 import './auth.js';
 import './api.js';
 import './dashboard.js';
@@ -16,23 +19,26 @@ import {
   openPDF, sluitPDF, downloadPDF, openEmail, sluitEmail, verstuur, verstuurWhatsApp
 } from './pdf.js';
 
-// Inline onclick="..."/onchange="..." attributen in index.html verwachten
-// deze functies als globals (zie index.html voor de aanroepen).
-window.pinKey = pinKey;
-window.pinDel = pinDel;
-window.naarTab = naarTab;
-window.laadFoto = laadFoto;
-window.addALS = addALS;
-window.addRM = addRM;
-window.setCon = setCon;
-window.clearSign = clearSign;
-window.openPDF = openPDF;
-window.sluitPDF = sluitPDF;
-window.downloadPDF = downloadPDF;
-window.openEmail = openEmail;
-window.sluitEmail = sluitEmail;
-window.verstuur = verstuur;
-window.verstuurWhatsApp = verstuurWhatsApp;
+// Acties zonder argument, of met een simpel string-argument uit data-arg.
+const ACTIES = {
+  pinKey, pinDel, addALS, addRM, setCon, clearSign,
+  openPDF, sluitPDF, downloadPDF, openEmail, sluitEmail, verstuur, verstuurWhatsApp,
+  naarTab: n => naarTab(parseInt(n, 10))
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el || el.dataset.act === 'laadFoto') return; // laadFoto hoort bij het change-event hieronder
+  const fn = ACTIES[el.dataset.act];
+  if (!fn) return;
+  if (el.dataset.arg !== undefined) fn(el.dataset.arg);
+  else fn();
+});
+// laadFoto(input, key) heeft het input-element zelf nodig (this.files) en
+// hoort bij een change-event, niet bij een klik.
+document.addEventListener('change', e => {
+  const el = e.target.closest('[data-act="laadFoto"]');
+  if (el) laadFoto(el, el.dataset.arg);
+});
 
 // INIT
 buildOor('el-checks',ELC); buildOor('el-vis',ELV);
