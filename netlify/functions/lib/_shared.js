@@ -209,22 +209,56 @@ function hasValidSession(event) {
 }
 
 // Lichte accountability-logging (geen zware audit-infrastructuur: geen UI,
-// geen retentiebeleid, gewoon genoeg om achteraf te kunnen reconstrueren wat
-// er gebeurd is bij een gedeelde PIN - wie/wanneer is niet te herleiden naar
-// een persoon, maar tijdstip + IP + actie + inspectie-id samen wel bruikbaar
-// voor reconstructie). Eigen, aparte Blobs-store (nta-logboek), gescheiden
-// van de inspectiedata zelf. Eén key per logregel (geen read-modify-write op
-// een groeiende lijst - dat zou zowel traag als race-gevoelig worden), dus
-// puur een append-only set van schrijfacties zonder onderlinge afhankelijkheid.
-// Loggen is altijd best-effort: een loghapering mag de eigenlijke actie
-// (opslaan/versturen/verwijderen) nooit blokkeren of laten mislukken.
+// gewoon genoeg om achteraf te kunnen reconstrueren wat er gebeurd is bij een
+// gedeelde PIN - wie/wanneer is niet te herleiden naar een persoon, maar
+// tijdstip + IP + actie + inspectie-id samen wel bruikbaar voor reconstructie).
+// Eigen, aparte Blobs-store (nta-logboek), gescheiden van de inspectiedata
+// zelf. Eén key per logregel (geen read-modify-write op een groeiende lijst -
+// dat zou zowel traag als race-gevoelig worden), dus puur een append-only set
+// van schrijfacties zonder onderlinge afhankelijkheid. Loggen is altijd
+// best-effort: een loghapering mag de eigenlijke actie (opslaan/versturen/
+// verwijderen) nooit blokkeren of laten mislukken.
+//
+// Bewaartermijn: het logboek bevat IP-adressen (persoonsgegeven, los van de
+// inspectiedata) - regels ouder dan 90 dagen worden opgeruimd. Geen aparte
+// scheduled function ervoor (onnodige complexiteit voor deze schaal): bij
+// een klein percentage van de schrijfacties wordt de lijst gescand en worden
+// verlopen regels verwijderd. De tijdstempel staat al in de key (geen aparte
+// lees per entry nodig om te bepalen of iets verlopen is). Best effort, net
+// als de rest van dit logboek - een gemiste opruimronde wordt bij een latere
+// schrijfactie alsnog opgepakt.
 const LOGBOEK_STORE = 'nta-logboek';
+const LOGBOEK_BEWAARTERMIJN_MS = 90 * 24 * 3600000;
+const LOGBOEK_OPRUIM_KANS = 0.05; // gemiddeld 1 op de 20 schrijfacties
+
+async function ruimOudeLogregelsOp(store) {
+  try {
+    const grens = Date.now() - LOGBOEK_BEWAARTERMIJN_MS;
+    const { blobs } = await store.list({ prefix: 'log:' });
+    await Promise.all(blobs.map(async (b) => {
+      // Key-formaat: 'log:' + ISO-tijdstip (24 tekens, zelf ook dubbele
+      // punten bevattend) + ':' + 8 hex-tekens. Vaste lengtes, dus het
+      // ISO-deel er met slice() uit halen i.p.v. op ':' te splitsen.
+      const isoDeel = b.key.slice(4, -9);
+      const tijd = Date.parse(isoDeel);
+      if (Number.isFinite(tijd) && tijd < grens) {
+        await store.delete(b.key).catch(() => {});
+      }
+    }));
+  } catch (err) {
+    console.warn('Opruimen oude logregels mislukt (best effort):', err.message);
+  }
+}
+
 async function logActie(event, actie, inspectieId) {
   try {
     const store = getStore(LOGBOEK_STORE);
     const tijdstip = new Date().toISOString();
     const key = `log:${tijdstip}:${crypto.randomUUID().slice(0, 8)}`;
     await store.setJSON(key, { tijdstip, actie, inspectieId, ip: getClientIp(event) });
+    if (Math.random() < LOGBOEK_OPRUIM_KANS) {
+      await ruimOudeLogregelsOp(store);
+    }
   } catch (err) {
     console.warn('Kon actie niet loggen (logboek aparte zorg, blokkeert de actie zelf niet):', err.message);
   }
