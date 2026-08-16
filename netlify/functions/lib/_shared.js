@@ -76,6 +76,75 @@ async function checkRateLimit(storeName, key, max, windowMs) {
   }
 }
 
+// Fail-closed variant voor endpoints waar "even niemand toelaten" veiliger
+// is dan "onbeperkt doorlaten bij een storing" - kostbare AI-aanroepen
+// (OCR) zonder limiet bij een Blobs-hapering is een reëel misbruik-/
+// kostenrisico. Zelfde teller-logica als checkRateLimit(), alleen de
+// catch-uitkomst is omgedraaid.
+async function checkRateLimitFailClosed(storeName, key, max, windowMs) {
+  try {
+    const store = getStore(storeName);
+    const now = Date.now();
+    const raw = await store.get(key, { type: 'json' });
+    const hits = Array.isArray(raw) ? raw.filter(t => now - t < windowMs) : [];
+
+    if (hits.length >= max) {
+      return false;
+    }
+
+    hits.push(now);
+    await store.setJSON(key, hits);
+    return true;
+  } catch (err) {
+    console.warn(`Rate limit (fail-closed) geweigerd - ${storeName} niet beschikbaar:`, err.message);
+    return false; // FAIL CLOSED: liever tijdelijk niemand toelaten dan onbeperkt doorlaten
+  }
+}
+
+// Fail-closed + zo atomair mogelijke rate limiting, specifiek voor login
+// (verify-pin: klein aantal pogingen per venster, dus een scan door alle
+// slots is goedkoop - dit is NIET bedoeld voor endpoints met een hoog max,
+// zoals OCR, waar checkRateLimitFailClosed() hierboven volstaat).
+//
+// Atomiciteit: elke poging claimt een eigen, genummerde slot-key binnen het
+// huidige (vaste) tijdvenster, in plaats van één gedeelde teller-array te
+// lezen en terug te schrijven - dat laatste laat gelijktijdige schrijvers
+// elkaars update verliezen, zoals uitgebreid aangetoond bij de rapportnummer-
+// race condition (zie lib/inspecties.js: claimEnBewaarRapportnummer). Elke
+// claim wordt na een korte pauze herlezen ter bevestiging, dezelfde aanpak
+// als daar. Geen waterdichte garantie (dezelfde onderliggende Blobs-
+// beperking - geen echte compare-and-swap in deze Lambda-compatibiliteits-
+// modus - blijft gelden), maar begrenst hoeveel gelijktijdige verzoeken
+// elkaar in de praktijk kunnen voorbijschieten tot ruwweg het aantal
+// daadwerkelijk gelijktijdige verzoeken, in plaats van een ongelimiteerd
+// race-venster. Vast (niet schuivend) venster: rond een venstergrens kan een
+// aanvaller in het slechtste geval ruwweg 2x het geconfigureerde maximum
+// kort na elkaar proberen - een bewust geaccepteerde, begrensde afweging ten
+// opzichte van complexiteit die op dit platform toch geen harde garantie
+// zou geven.
+async function checkLoginRateLimit(storeName, key, max, windowMs) {
+  try {
+    const store = getStore(storeName);
+    const now = Date.now();
+    const windowStart = Math.floor(now / windowMs) * windowMs;
+
+    for (let slot = 0; slot < max; slot++) {
+      const slotKey = `${key}:${windowStart}:${slot}`;
+      const bestaand = await store.get(slotKey);
+      if (bestaand) continue; // deze slot is al bezet, probeer de volgende
+      await store.set(slotKey, String(now));
+      await new Promise(resolve => setTimeout(resolve, 60 + Math.random() * 120));
+      const controle = await store.get(slotKey);
+      if (controle === String(now)) return true; // deze poging heeft de slot echt gewonnen
+      // Iemand anders overschreef onze claim gelijktijdig - probeer de volgende slot.
+    }
+    return false; // alle slots binnen dit venster zijn bezet
+  } catch (err) {
+    console.warn(`Login rate limit (fail-closed) geweigerd - ${storeName} niet beschikbaar:`, err.message);
+    return false; // FAIL CLOSED: liever tijdelijk niemand toelaten dan onbeperkt gokken toestaan
+  }
+}
+
 function base64url(buf) {
   return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
@@ -140,6 +209,8 @@ module.exports = {
   isAllowedOrigin,
   getClientIp,
   checkRateLimit,
+  checkRateLimitFailClosed,
+  checkLoginRateLimit,
   createSessionToken,
   verifySessionToken,
   safeCompare,

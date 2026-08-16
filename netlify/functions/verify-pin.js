@@ -2,7 +2,7 @@ const {
   corsHeaders,
   isAllowedOrigin,
   getClientIp,
-  checkRateLimit,
+  checkLoginRateLimit,
   createSessionToken,
   safeCompare,
   connectBlobs
@@ -29,13 +29,16 @@ exports.handler = async function(event) {
     return { statusCode: 403, headers, body: JSON.stringify({ error: 'Origin niet toegestaan' }) };
   }
 
+  // Fail-closed: bij een Blobs-storing wordt hier geweigerd in plaats van
+  // doorgelaten (in tegenstelling tot bv. send-email.js). Zonder dit zou een
+  // haperende rate-limit-check een 4-cijferige PIN ongelimiteerd gokbaar maken.
   const ip = getClientIp(event);
-  const allowed = await checkRateLimit('verify-pin-rate-limit', `ip:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+  const allowed = await checkLoginRateLimit('verify-pin-rate-limit', `ip:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
   if (!allowed) {
     return {
       statusCode: 429,
       headers,
-      body: JSON.stringify({ error: 'Te veel pogingen. Probeer het over 15 minuten opnieuw.' })
+      body: JSON.stringify({ error: 'Te veel pogingen, of de beveiligingscontrole is tijdelijk niet beschikbaar. Probeer het over 15 minuten opnieuw.' })
     };
   }
 

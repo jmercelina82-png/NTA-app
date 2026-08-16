@@ -3,7 +3,7 @@ const {
   corsHeaders,
   isAllowedOrigin,
   getClientIp,
-  checkRateLimit,
+  checkRateLimitFailClosed,
   hasValidSession,
   connectBlobs
 } = require('./lib/_shared');
@@ -45,8 +45,10 @@ exports.handler = async function (event) {
     return { statusCode: 401, headers, body: JSON.stringify({ error: 'Sessie verlopen of ongeldig, log opnieuw in' }) };
   }
 
+  // Fail-closed: kostbare AI-aanroepen mogen niet ongelimiteerd doorgaan als
+  // de rate-limit-check zelf hapert (zelfde redenering als bij verify-pin).
   const ip = getClientIp(event);
-  const allowed = await checkRateLimit('ocr-meter-rate-limit', `ip:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
+  const allowed = await checkRateLimitFailClosed('ocr-meter-rate-limit', `ip:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
   if (!allowed) {
     return { statusCode: 429, headers, body: JSON.stringify({ error: 'Te veel verzoeken. Probeer het later opnieuw.' }) };
   }
