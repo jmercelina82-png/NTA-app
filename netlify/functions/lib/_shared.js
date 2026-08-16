@@ -101,44 +101,34 @@ async function checkRateLimitFailClosed(storeName, key, max, windowMs) {
   }
 }
 
-// Fail-closed + zo atomair mogelijke rate limiting, specifiek voor login
-// (verify-pin: klein aantal pogingen per venster, dus een scan door alle
-// slots is goedkoop - dit is NIET bedoeld voor endpoints met een hoog max,
-// zoals OCR, waar checkRateLimitFailClosed() hierboven volstaat).
+// Fail-closed rate limiting, specifiek voor login (verify-pin).
 //
-// Atomiciteit: elke poging claimt een eigen, genummerde slot-key binnen het
-// huidige (vaste) tijdvenster, in plaats van één gedeelde teller-array te
-// lezen en terug te schrijven - dat laatste laat gelijktijdige schrijvers
-// elkaars update verliezen, zoals uitgebreid aangetoond bij de rapportnummer-
-// race condition (zie lib/inspecties.js: claimEnBewaarRapportnummer). Elke
-// claim wordt na een korte pauze herlezen ter bevestiging, dezelfde aanpak
-// als daar. Geen waterdichte garantie (dezelfde onderliggende Blobs-
-// beperking - geen echte compare-and-swap in deze Lambda-compatibiliteits-
-// modus - blijft gelden), maar begrenst hoeveel gelijktijdige verzoeken
-// elkaar in de praktijk kunnen voorbijschieten tot ruwweg het aantal
-// daadwerkelijk gelijktijdige verzoeken, in plaats van een ongelimiteerd
-// race-venster. Vast (niet schuivend) venster: rond een venstergrens kan een
-// aanvaller in het slechtste geval ruwweg 2x het geconfigureerde maximum
-// kort na elkaar proberen - een bewust geaccepteerde, begrensde afweging ten
-// opzichte van complexiteit die op dit platform toch geen harde garantie
-// zou geven.
+// Voorheen probeerde deze functie "atomischer" te zijn dan checkRateLimit()
+// hieronder door elke poging een eigen genummerde slot-key te laten claimen
+// en die na een korte pauze te herlezen ter bevestiging. In de praktijk
+// bleek die bevestigingsstap onbetrouwbaar: Netlify Blobs garandeert geen
+// direct-consistente lezing-na-schrijving, dus de herlezing kwam regelmatig
+// leeg terug voor een claim die wel degelijk was weggeschreven. Daardoor
+// dacht de code steeds "iemand anders was me voor" op ALLE slots, ook bij
+// een enkele, niet-gelijktijdige aanroep - met als gevolg dat een normale
+// gebruiker zichzelf op de eerste inlogpoging al volledig buitensloot.
+// Teruggezet naar dezelfde eenvoudige teller-array als checkRateLimit()
+// hieronder (die dit probleem niet heeft, want geen lezing-na-schrijving-
+// aanname), met behoud van fail-closed gedrag bij een Blobs-storing.
 async function checkLoginRateLimit(storeName, key, max, windowMs) {
   try {
     const store = getStore(storeName);
     const now = Date.now();
-    const windowStart = Math.floor(now / windowMs) * windowMs;
+    const raw = await store.get(key, { type: 'json' });
+    const hits = Array.isArray(raw) ? raw.filter(t => now - t < windowMs) : [];
 
-    for (let slot = 0; slot < max; slot++) {
-      const slotKey = `${key}:${windowStart}:${slot}`;
-      const bestaand = await store.get(slotKey);
-      if (bestaand) continue; // deze slot is al bezet, probeer de volgende
-      await store.set(slotKey, String(now));
-      await new Promise(resolve => setTimeout(resolve, 60 + Math.random() * 120));
-      const controle = await store.get(slotKey);
-      if (controle === String(now)) return true; // deze poging heeft de slot echt gewonnen
-      // Iemand anders overschreef onze claim gelijktijdig - probeer de volgende slot.
+    if (hits.length >= max) {
+      return false;
     }
-    return false; // alle slots binnen dit venster zijn bezet
+
+    hits.push(now);
+    await store.setJSON(key, hits);
+    return true;
   } catch (err) {
     console.warn(`Login rate limit (fail-closed) geweigerd - ${storeName} niet beschikbaar:`, err.message);
     return false; // FAIL CLOSED: liever tijdelijk niemand toelaten dan onbeperkt gokken toestaan
