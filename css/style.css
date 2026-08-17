@@ -165,6 +165,8 @@ input.ai-suggestie { border-color: var(--blue); background: rgba(19,123,255,.10)
 .succes-badge-g { color: var(--green); background: var(--green-bg); border: 1px solid var(--green-border); }
 .succes-badge-e { color: var(--amber); background: var(--amber-bg); border: 1px solid var(--amber-border); }
 .succes-badge-r { color: var(--red); background: var(--red-bg); border: 1px solid var(--red-border); }
+.succes-waarschuwing { display: flex; align-items: flex-start; gap: 9px; margin-top: 12px; padding: 11px 13px; border-radius: 12px; background: var(--amber-bg); border: 1px solid var(--amber-border); color: var(--amber); font: 500 12px/1.5 'Inter', sans-serif; }
+.succes-waarschuwing svg { flex-shrink: 0; margin-top: 1px; }
 .succes-actie { display: flex; align-items: center; gap: 10px; width: 100%; padding: 13px 14px; margin-top: 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--input-bg); color: var(--text2); font: 600 13.5px 'Inter', sans-serif; cursor: pointer; text-align: left; }
 .succes-actie:hover { border-color: var(--border-strong); }
 .succes-actie svg { flex-shrink: 0; }

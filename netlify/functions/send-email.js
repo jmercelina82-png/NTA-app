@@ -109,25 +109,40 @@ exports.handler = async function(event) {
 
     await transporter.sendMail(mailOptions);
 
-    // Best effort: koppel het verzonden rapport aan de inspectie, zet 'm op
-    // afgerond en werk de verzonden-datum bij - ook bij een herhaalde
-    // verzending (opnieuw versturen vanuit het archief), zodat die altijd de
-    // laatste keer verzenden weergeeft. Een fout hier mag de succesvolle
-    // verzending niet ongedaan maken.
+    // Koppel het verzonden rapport aan de inspectie, zet 'm op afgerond en
+    // werk de verzonden-datum bij - ook bij een herhaalde verzending (opnieuw
+    // versturen vanuit het archief), zodat die altijd de laatste keer
+    // verzenden weergeeft. De verzending zelf is op dit punt al onomkeerbaar
+    // gelukt, dus een fout hier mag dat succes nooit ongedaan maken - maar
+    // stil falen zou het rapport onbeperkt als "open" laten staan terwijl de
+    // mail al weg is, met risico op een onbedoelde dubbele verzending. Daarom
+    // een paar pogingen (kans dat een kortstondige Blobs-hapering bij de
+    // volgende poging al voorbij is) en bij aanhoudend falen dat expliciet
+    // terugmelden aan de client i.p.v. stilzwijgend {success:true} te geven -
+    // zie pdf.js/verstuur() voor hoe dat zichtbaar gemaakt wordt.
+    let statusBijgewerkt = false;
     if (isValidId(id)) {
-      try {
-        const store = getInspectieStore();
-        const key = inspectieKey(id);
-        const rec = await store.get(key, { type: 'json' });
-        if (rec) {
+      const store = getInspectieStore();
+      const key = inspectieKey(id);
+      for (let poging = 0; poging < 3 && !statusBijgewerkt; poging++) {
+        try {
+          if (poging > 0) await new Promise(r => setTimeout(r, 250 * poging));
+          const rec = await store.get(key, { type: 'json' });
+          if (!rec) break; // inspectie inmiddels verwijderd - niets meer te markeren
           rec.status = 'afgerond';
           rec.verzonden = Date.now();
           rec.laatstGewijzigd = Date.now();
           await store.setJSON(key, rec);
+          statusBijgewerkt = true;
+        } catch (statusErr) {
+          console.warn(`Kon inspectie niet op afgerond zetten (poging ${poging + 1}/3):`, statusErr.message);
         }
-      } catch (statusErr) {
-        console.warn('Kon inspectie niet op afgerond zetten:', statusErr.message);
       }
+      if (!statusBijgewerkt) {
+        console.error(`Status van inspectie ${id} kon na verzending niet op afgerond gezet worden ondanks 3 pogingen - e-mail is wel verzonden.`);
+      }
+    } else {
+      statusBijgewerkt = true; // geen (geldig) id meegestuurd - er is niets om bij te werken, dus geen inconsistentie om te melden
     }
 
     await logActie(event, 'verzonden', isValidId(id) ? id : null);
@@ -135,7 +150,7 @@ exports.handler = async function(event) {
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ success: true })
+      body: JSON.stringify({ success: true, statusBijgewerkt })
     };
 
   } catch (err) {

@@ -420,11 +420,22 @@ export function openPDF(){
     const pdoc=document.getElementById('pdoc');
     pdoc.style.cssText='padding:0;max-width:100%;background:transparent;margin:0;';
     // Sommige mobiele browsers tonen een PDF niet inline in een iframe (bekende
-    // beperking, geen bug in de PDF zelf) - daarom altijd een zichtbare hint
-    // naar de werkende "Download PDF"-knop, in plaats van alleen een leeg/
-    // kapot voorvertoningsvlak te tonen.
-    pdoc.innerHTML='<div style="background:var(--amber-bg);color:var(--amber);border-bottom:1px solid var(--amber-border);font:600 12px \'Inter\',sans-serif;text-align:center;padding:8px 12px;">Zie je hieronder niets? Gebruik "Download PDF" hierboven.</div>'
-      +'<iframe src="'+url+'#toolbar=0&navpanes=0" style="width:100%;height:calc(100vh - 92px);border:none;display:block;" title="PDF"></iframe>';
+    // beperking, geen bug in de PDF zelf - het gegenereerde rapport is altijd
+    // compleet). Een losstaand, duidelijk klikbaar downloadblok bovenaan i.p.v.
+    // alleen een tekstregel: wie op een niet-ondersteunend apparaat zit ziet zo
+    // meteen een werkende actie i.p.v. eerst het lege/kapotte voorvertoningsvlak.
+    // De iframe blijft daaronder staan - op apparaten die het wel ondersteunen
+    // werkt de inline voorvertoning gewoon.
+    pdoc.innerHTML=
+      '<div style="padding:30px 20px;text-align:center;background:var(--card);border-bottom:1px solid var(--border);">'
+      + '<div style="width:52px;height:52px;margin:0 auto 14px;border-radius:14px;background:var(--amber-bg);border:1px solid var(--amber-border);display:flex;align-items:center;justify-content:center;">'
+      + '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F0A94E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>'
+      + '</div>'
+      + '<div style="font:700 15px \'Inter\',sans-serif;color:var(--text);margin-bottom:6px;">Voorvertoning mogelijk niet zichtbaar</div>'
+      + '<div style="font:500 13px/1.5 \'Inter\',sans-serif;color:var(--muted);max-width:320px;margin:0 auto 18px;">Sommige browsers kunnen een PDF niet rechtstreeks tonen. Het rapport zelf is gewoon compleet - download het hieronder.</div>'
+      + '<button class="btn-blauw" data-act="downloadPDF" style="width:auto;padding:13px 28px;"> Download PDF</button>'
+      + '</div>'
+      + '<iframe src="'+url+'#toolbar=0&navpanes=0" style="width:100%;height:calc(100vh - 92px);border:none;display:block;" title="PDF"></iframe>';
     document.getElementById('pov').classList.add('on');
   }).catch(e=>{console.error('PDF fout:',e);alert('PDF fout: '+e.message);});
 }
@@ -536,6 +547,13 @@ export async function verstuur(){
       const resEl = document.getElementById('succes-resultaat');
       resEl.textContent = cLNaam;
       resEl.className = 'succes-badge ' + cLCls;
+      // E-mail is op dit punt sowieso al onomkeerbaar verzonden (de server
+      // bevestigt dat via success:true) - statusBijgewerkt:false betekent
+      // alleen dat het apart markeren als "afgerond" niet lukte ondanks de
+      // retries in send-email.js. Zichtbaar houden i.p.v. stilzwijgend te
+      // laten lijken alsof alles in orde is, zodat niemand het rapport per
+      // ongeluk nogmaals verstuurt terwijl het dashboard nog "open" toont.
+      document.getElementById('succes-status-waarschuwing').style.display = data.statusBijgewerkt === false ? 'flex' : 'none';
       document.getElementById('eml-na-verzenden').style.display = 'block';
     } else {
       if (res.status === 401) {
