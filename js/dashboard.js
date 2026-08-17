@@ -1,6 +1,6 @@
 // Dashboard: lijst openstaand/afgerond ophalen en renderen, "+ Nieuwe
 // inspectie", navigatie tussen dashboard en formulier.
-import { huidigId, setHuidigId, setLaatstGewijzigdBasis } from './state.js';
+import { huidigId, setHuidigId, setLaatstGewijzigdBasis, netVerzondenId, setNetVerzondenId } from './state.js';
 import { cancelPendingSave, serverSave } from './autosave.js';
 import { naarTab, resetFormulier, vulFormulier } from './form.js';
 import { openPDF, openEmail } from './pdf.js';
@@ -22,12 +22,43 @@ function toonDashFout() {
  document.getElementById('w-lijst-klaar').innerHTML = msg;
 }
 
+async function haalInspectiesOp() {
+ const res = await listInspectionsRequest();
+ if (!res.ok) return null;
+ const data = await res.json();
+ return data.inspecties || [];
+}
+
 export async function verversDashboard() {
  try {
- const res = await listInspectionsRequest();
- if (!res.ok) { toonDashFout(); return; }
- const data = await res.json();
- dashData = data.inspecties || [];
+ let lijst = await haalInspectiesOp();
+ if (!lijst) { toonDashFout(); return; }
+ // Net verzonden (server bevestigde statusBijgewerkt:true) maar hier nog
+ // niet als 'afgerond' te zien - Blobs' list() kan een fractie achterlopen
+ // op een zojuist gelukte schrijfactie (zie de uitgebreide toelichting bij
+ // claimEnBewaarRapportnummer in lib/inspecties.js: get() op een specifieke
+ // key is aantoonbaar consistenter/sneller dan list()). Daarom gericht op
+ // die ene inspectie pollen via get-inspection (lichter dan herhaald de
+ // volledige lijst opvragen, en scherper op het moment van overgang) i.p.v.
+ // de gebruiker een verouderde 'Concept'-status te tonen totdat ze zelf
+ // verversen; pas na een bevestigde overgang nog één keer de lijst verversen.
+ if (netVerzondenId) {
+ const id = netVerzondenId;
+ setNetVerzondenId(null);
+ for (let poging = 0; poging < 8; poging++) {
+ const rec = lijst.find(w => w.id === id);
+ if (rec && rec.status === 'afgerond') break;
+ await new Promise(r => setTimeout(r, 400));
+ try {
+ const res = await getInspectionRequest(id);
+ if (res.ok) {
+ const vers = await res.json();
+ if (vers.status === 'afgerond') { lijst = await haalInspectiesOp() || lijst; break; }
+ }
+ } catch(_) { /* netwerkfout - volgende poging probeert het opnieuw */ }
+ }
+ }
+ dashData = lijst;
  renderDash();
  renderAlleLijst();
  } catch(_) { toonDashFout(); }

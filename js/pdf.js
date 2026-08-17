@@ -3,7 +3,7 @@
 // stonden ook in de oorspronkelijke index.html direct na elkaar.
 import { jnS, oor, oorReden, con, fotos, alsList, rmList, ELC, ELV, WTV, GSV, getSign, valideerVoorVersturen } from './form.js';
 import { gv, LOGO, comprimeerFotos, esc } from './utils.js';
-import { huidigId } from './state.js';
+import { huidigId, setNetVerzondenId } from './state.js';
 import { _PS } from './auth.js';
 import { sendEmailRequest } from './api.js';
 import { serverSave, cancelPendingSave } from './autosave.js';
@@ -469,8 +469,8 @@ export async function downloadPDF(){
 export function openEmail(){
  const validatie = valideerVoorVersturen();
  if (!validatie.ok) { alert(validatie.melding); return; }
- document.getElementById('eml-sub').value=`FSB NTA 8025 ${gv('rapportnummer')} ${gv('adres')} ${gv('datum')}`;
  const cL=con==='g'?'GEEN BEZWAAR':con==='e'?'ENIG BEZWAAR':con==='r'?'ERNSTIG BEZWAAR':'NIET BEPAALD';
+ document.getElementById('eml-sub').value=`NTA rapport "${gv('adres')}", ${cL}`;
  document.getElementById('eml-body').value=`Geachte heer/mevrouw,
 
 Hierbij het NTA 8025 rapport van FSB Onderhoudsbedrijf BV.
@@ -571,6 +571,11 @@ export async function verstuur(){
       // laten lijken alsof alles in orde is, zodat niemand het rapport per
       // ongeluk nogmaals verstuurt terwijl het dashboard nog "open" toont.
       document.getElementById('succes-status-waarschuwing').style.display = data.statusBijgewerkt === false ? 'flex' : 'none';
+      // Laat het dashboard weten dat deze inspectie zojuist naar 'afgerond'
+      // is gezet, zodat het bij de eerstvolgende weergave een eventuele
+      // vertraagde Blobs-lezing kort kan opvangen i.p.v. tijdelijk nog
+      // 'Concept' te tonen - zie dashboard.js/verversDashboard().
+      if (data.statusBijgewerkt !== false) setNetVerzondenId(huidigId);
       document.getElementById('eml-na-verzenden').style.display = 'block';
     } else {
       if (res.status === 401) {
