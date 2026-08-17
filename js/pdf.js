@@ -440,7 +440,24 @@ export function openPDF(){
   }).catch(e=>{console.error('PDF fout:',e);alert('PDF fout: '+e.message);});
 }
 
-export function sluitPDF(){document.getElementById('pov').classList.remove('on');}
+// "Rapport bekijken" op het successcherm sluit eerst de e-mailmodal (anders
+// zou de PDF-overlay - lagere z-index dan #eml - onzichtbaar achter de nog
+// open modal blijven) en opent daarna de PDF. Zonder dit te onthouden bleef
+// de modal na het sluiten van de PDF dicht: de gebruiker kwam terecht op het
+// gewone formulier ("05 Einde") i.p.v. terug op het successcherm, en de
+// "Terug naar dashboard"-knop van dat scherm (die daar zit, niet ergens
+// anders) was zo onbereikbaar - de kop-icoon/browser-navigatie was dan de
+// enige uitweg. sluitPDF() zet de modal nu weer open als de PDF vanuit het
+// successcherm kwam, zodat de gebruiker altijd op precies datzelfde scherm
+// terugkeert.
+let pdfGeopendVanuitSucces = false;
+export function sluitPDF(){
+  document.getElementById('pov').classList.remove('on');
+  if (pdfGeopendVanuitSucces) {
+    pdfGeopendVanuitSucces = false;
+    document.getElementById('eml').classList.add('on');
+  }
+}
 export async function downloadPDF(){
   const doc=await generatePDF();
   const adres=(gv('adres')||'rapport').replace(/\s+/g,'-');
@@ -484,7 +501,7 @@ export function naarDashboardNaVerzenden(){
  verversDashboard();
 }
 document.getElementById('btn-na-verzenden-dash').addEventListener('click', naarDashboardNaVerzenden);
-document.getElementById('btn-succes-pdf').addEventListener('click', () => { sluitEmail(); openPDF(); });
+document.getElementById('btn-succes-pdf').addEventListener('click', () => { pdfGeopendVanuitSucces = true; sluitEmail(); openPDF(); });
 export async function verstuur(){
   const btn = document.getElementById('btn-dosend');
   const st  = document.getElementById('eml-st');
