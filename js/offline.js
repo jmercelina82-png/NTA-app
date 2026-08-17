@@ -43,13 +43,21 @@ function req2promise(req) {
   });
 }
 
+// Lichtgewicht identiteit per save-poging (timestamp + willekeurig staartje -
+// geen UUID-library nodig, hoeft alleen lokaal-uniek genoeg te zijn om twee
+// opeenvolgende saves van elkaar te onderscheiden).
+function genereerSaveId() {
+  return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+}
+
 // Bewaart de huidige (al gecomprimeerde) payload lokaal, status 'pending'
-// totdat een sync-poging 'synced' of 'afgewezen' (4xx) maakt.
+// totdat een sync-poging 'synced' of 'afgewezen' (4xx) maakt. Elke save
+// krijgt een eigen saveId - zie probeerSync() voor waarom.
 export async function bewaarLokaal(id, payload) {
   try {
     const db = await openDb();
     const store = db.transaction(STORE, 'readwrite').objectStore(STORE);
-    await req2promise(store.put({ id, payload, status: 'pending', laatstGewijzigd: Date.now() }));
+    await req2promise(store.put({ id, payload, status: 'pending', laatstGewijzigd: Date.now(), saveId: genereerSaveId() }));
   } catch (err) {
     console.warn('Lokaal bewaren (IndexedDB) mislukt:', err && err.message);
   }
@@ -139,15 +147,37 @@ function timeoutRace(promise, ms) {
 // 'afgewezen' telt 'conflict' niet mee als 'pending' voor haalWachtend()).
 // 401 wordt al apart afgehandeld door apiFetch (sessie verlopen -> PIN-
 // scherm), dat gedrag blijft ongewijzigd.
+//
+// saveId-identiteitscheck: deze functie wordt soms los van de normale
+// autosave-volgorde aangeroepen (bv. laadInspectie() start een sync-poging
+// voor een lokaal gewachte kopie zonder daarop te wachten). Als de
+// gebruiker tijdens zo'n lopend verzoek verder wijzigt, overschrijft de
+// nieuwe wijziging het lokale record (nieuwe saveId) vóórdat het oude
+// verzoek antwoord krijgt. Zonder deze check zou dat late "gelukt"-antwoord
+// het inmiddels alweer verouderde lokale record als 'synced' markeren -
+// de nieuwere wijziging zou dan nooit meer verstuurd worden, stil
+// dataverlies ondanks het offline-vangnet. Daarom wordt de saveId van de
+// payload bij de start van deze poging vastgelegd, meegestuurd naar de
+// server, en na afloop vergeleken met wat er op dát moment lokaal staat -
+// alleen bij een exacte match wordt 'synced' gezet.
 export async function probeerSync(id, payload) {
   let gelukt = false;
   try {
-    const res = await timeoutRace(saveInspectionRequest(payload), SYNC_TIMEOUT_MS);
+    const lokaalBijStart = await haalLokaleKopie(id);
+    const saveId = lokaalBijStart ? lokaalBijStart.saveId : null;
+
+    const res = await timeoutRace(saveInspectionRequest({ ...payload, saveId }), SYNC_TIMEOUT_MS);
     if (res.ok) {
       const data = await res.json().catch(() => ({}));
       if (typeof data.laatstGewijzigd === 'number') setLaatstGewijzigdBasis(data.laatstGewijzigd);
-      await zetStatus(id, 'synced');
-      gelukt = true;
+      const lokaalNu = await haalLokaleKopie(id);
+      if (lokaalNu && lokaalNu.saveId === saveId) {
+        await zetStatus(id, 'synced');
+        gelukt = true;
+      }
+      // Anders: er is intussen een nieuwere lokale wijziging opgeslagen -
+      // dit antwoord hoort niet meer bij de actuele payload. Lokaal blijft
+      // 'pending' zodat de nieuwere payload alsnog verstuurd wordt.
     } else if (res.status === 409) {
       const data = await res.json().catch(() => ({}));
       if (data.code === 'VEROUDERD') { await zetStatusAlsNogPending(id, 'conflict'); }
