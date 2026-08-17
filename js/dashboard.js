@@ -1,6 +1,6 @@
 // Dashboard: lijst openstaand/afgerond ophalen en renderen, "+ Nieuwe
 // inspectie", navigatie tussen dashboard en formulier.
-import { huidigId, setHuidigId } from './state.js';
+import { huidigId, setHuidigId, setLaatstGewijzigdBasis } from './state.js';
 import { cancelPendingSave, serverSave } from './autosave.js';
 import { naarTab, resetFormulier, vulFormulier } from './form.js';
 import { openPDF, openEmail } from './pdf.js';
@@ -183,6 +183,7 @@ export async function nieuweInspectie() {
  const data = await res.json();
  setHuidigId(data.id);
  resetFormulier();
+ setLaatstGewijzigdBasis(data.laatstGewijzigd);
  document.getElementById('rapportnummer').value = data.rapportnummer;
  await serverSave();
  document.getElementById('dash').classList.remove('on');

@@ -108,7 +108,30 @@ exports.handler = async function (event) {
       return { statusCode: 404, headers, body: JSON.stringify({ error: 'Inspectie niet gevonden' }) };
     }
     if (bestaand.status === 'afgerond') {
-      return { statusCode: 409, headers, body: JSON.stringify({ error: 'Rapport is al verzonden en kan niet meer bewerkt worden' }) };
+      return { statusCode: 409, headers, body: JSON.stringify({ error: 'Rapport is al verzonden en kan niet meer bewerkt worden', code: 'AL_VERZONDEN' }) };
+    }
+
+    // Bescherming tegen een oudere, tragere save die een nieuwere overschrijft
+    // (bv. bij wisselend 4G-bereik op locatie): de client stuurt de laatst
+    // bekende serverstand mee (laatstGewijzigdBasis), gebaseerd op eigen
+    // klokstand van de vorige succesvolle save/fetch - niet de lokale
+    // apparaatklok. Is die ouder dan wat er al ligt, dan zou wegschrijven
+    // stilzwijgend recentere data overschrijven; in plaats daarvan wordt de
+    // aanvraag geweigerd zodat de client via het lokale IndexedDB-vangnet kan
+    // reageren i.p.v. de wijziging stil te laten verdwijnen. Ontbreekt het
+    // veld (oudere client, of een vóór deze wijziging al lokaal gewachte
+    // aanvraag), dan wordt de check overgeslagen - hetzelfde gedrag als
+    // voorheen, om die aanvragen niet alsnog te laten mislukken.
+    if (typeof body.laatstGewijzigdBasis === 'number' && body.laatstGewijzigdBasis < bestaand.laatstGewijzigd) {
+      return {
+        statusCode: 409,
+        headers,
+        body: JSON.stringify({
+          error: 'Er staat al een nieuwere versie van deze inspectie op de server - deze wijziging is niet weggeschreven om te voorkomen dat recentere data verloren gaat',
+          code: 'VEROUDERD',
+          serverLaatstGewijzigd: bestaand.laatstGewijzigd
+        })
+      };
     }
 
     // Rapportnummer is server-only en onveranderlijk zodra het is toegekend

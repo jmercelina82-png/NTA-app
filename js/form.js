@@ -2,7 +2,7 @@
 // handtekening. Eigenaar van de "huidige formulierstaat" (jnS/oor/alsList/
 // rmList/con/fotos) - andere modules (autosave.js, pdf.js) lezen deze via de
 // live export-bindingen hieronder.
-import { huidigId } from './state.js';
+import { huidigId, setLaatstGewijzigdBasis } from './state.js';
 import { cancelPendingSave, serverSave } from './autosave.js';
 import { gv, esc } from './utils.js';
 import { triggerOcrSuggestie } from './ocr.js';
@@ -369,6 +369,11 @@ export function berekenVoortgang() {
 }
 
 export function vulFormulier(w) {
+ // Basis voor de eerstvolgende save-poging: bij een volledig serverrecord de
+ // eigen laatstGewijzigd, bij een lokaal gewachte kopie (offline.js) de
+ // meegegeven laatstGewijzigdBasis - zie save-inspection.js voor de check
+ // die hierop vertrouwt.
+ setLaatstGewijzigdBasis(w.laatstGewijzigdBasis ?? w.laatstGewijzigd ?? null);
  // Tekstvelden
  FLD.forEach(id => { const el=document.getElementById(id); if(el && w.f && w.f[id]!==undefined) el.value=w.f[id]; });
  // JA/NEE
@@ -440,6 +445,7 @@ export function vulFormulier(w) {
 }
 
 export function resetFormulier() {
+ setLaatstGewijzigdBasis(null);
  FLD.forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
  const td2 = new Date().toISOString().slice(0,10);
  document.getElementById('datum').value = td2;

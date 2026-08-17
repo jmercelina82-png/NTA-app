@@ -8,3 +8,11 @@
 // via "+ Nieuwe inspectie").
 export let huidigId = null;
 export function setHuidigId(id) { huidigId = id; }
+
+// Laatst bekende serverstand (laatstGewijzigd) van de open inspectie - de
+// basis waarop de eerstvolgende save vertrouwt om te bepalen of er intussen
+// al een nieuwere versie op de server staat (zie save-inspection.js en
+// offline.js). Wordt bijgewerkt na elke succesvolle fetch/save, nooit
+// gebaseerd op de lokale apparaatklok.
+export let laatstGewijzigdBasis = null;
+export function setLaatstGewijzigdBasis(t) { laatstGewijzigdBasis = typeof t === 'number' ? t : null; }

@@ -7,9 +7,11 @@
 // wijziging lokaal gemarkeerd als "nog niet gesynchroniseerd" en wordt
 // opnieuw geprobeerd bij het online-event en aanvullend elke 30s (online/
 // offline-events zijn niet altijd betrouwbaar, dus een periodieke check als
-// vangnet). Geen conflict-resolutie: single-gebruiker-tool (gedeelde login),
-// laatste schrijfactie wint - consistent met hoe Blobs toch al werkt.
-import { huidigId } from './state.js';
+// vangnet). Geen ingewikkelde merge-logica bij een conflict (single-
+// gebruiker-tool, gedeelde login) - wel wordt een save die de server als
+// verouderd afwijst (zie save-inspection.js) zichtbaar gemaakt i.p.v. de
+// oudere/nieuwere data stilzwijgend te laten overschrijven; zie probeerSync().
+import { huidigId, setLaatstGewijzigdBasis } from './state.js';
 import { saveInspectionRequest } from './api.js';
 
 const DB_NAAM = 'fsb-offline';
@@ -64,6 +66,23 @@ async function zetStatus(id, status) {
   } catch (_) { /* best effort - lokale kopie blijft gewoon staan */ }
 }
 
+// Zoals zetStatus(), maar update alleen als de lokale kopie nog 'pending' is.
+// Nodig voor een laat binnenkomend antwoord op een verouderde save-poging: als
+// er intussen al een NIEUWERE poging is gestart (bewaarLokaal zet dan opnieuw
+// 'pending', of een eerder antwoord zette 'm al op 'synced'), zou dit late
+// antwoord anders een inmiddels alweer actuele lokale kopie onterecht als
+// 'conflict' markeren.
+async function zetStatusAlsNogPending(id, status) {
+  try {
+    const db = await openDb();
+    const store = db.transaction(STORE, 'readwrite').objectStore(STORE);
+    const rec = await req2promise(store.get(id));
+    if (!rec || rec.status !== 'pending') return;
+    rec.status = status;
+    await req2promise(store.put(rec));
+  } catch (_) { /* best effort - lokale kopie blijft gewoon staan */ }
+}
+
 // Volledige lokale kopie (incl. status), bv. om na een offline pagina-herlaad
 // te herstellen. null als er niets lokaal bekend is voor dit id.
 export async function haalLokaleKopie(id) {
@@ -83,15 +102,22 @@ async function haalWachtend() {
   } catch (_) { return []; }
 }
 
-function toonSyncBanner(zichtbaar) {
+const OFFLINE_TEKST = 'Offline — wordt opgeslagen zodra er weer verbinding is';
+const CONFLICT_TEKST = 'Deze inspectie is elders bijgewerkt — herlaad de pagina om de nieuwste versie te zien';
+
+function toonSyncBanner(zichtbaar, tekst) {
   const el = document.getElementById('offline-banner');
-  if (el) el.classList.toggle('on', !!zichtbaar);
+  if (!el) return;
+  if (zichtbaar && tekst) el.textContent = tekst;
+  el.classList.toggle('on', !!zichtbaar);
 }
 
 async function verversSyncBanner() {
   if (!huidigId) { toonSyncBanner(false); return; }
   const lokaal = await haalLokaleKopie(huidigId);
-  toonSyncBanner(!!lokaal && lokaal.status === 'pending');
+  if (lokaal && lokaal.status === 'pending') { toonSyncBanner(true, OFFLINE_TEKST); return; }
+  if (lokaal && lokaal.status === 'conflict') { toonSyncBanner(true, CONFLICT_TEKST); return; }
+  toonSyncBanner(false);
 }
 
 function timeoutRace(promise, ms) {
@@ -104,15 +130,31 @@ function timeoutRace(promise, ms) {
 // Probeert één lokale wijziging naar de server te sturen. Geeft true terug
 // bij succes. Een netwerkfout/timeout laat de status op 'pending' staan
 // (later opnieuw geprobeerd); een 4xx (bv. 409 - al verzonden) markeert
-// 'afgewezen' want opnieuw proberen lost dat niet op. 401 wordt al apart
-// afgehandeld door apiFetch (sessie verlopen -> PIN-scherm), dat gedrag
-// blijft ongewijzigd.
+// 'afgewezen' want opnieuw proberen lost dat niet op. Een 409 met code
+// VEROUDERD (save-inspection.js weigerde de save omdat de server al een
+// nieuwere versie heeft - zie daar) markeert i.p.v. 'afgewezen' de eigen
+// 'conflict'-status: geen stille dataverdwijning, maar een zichtbaar signaal
+// (offline-banner) dat de gebruiker naar een herlaad-actie stuurt, en géén
+// eindeloze zinloze herhaalpogingen met dezelfde verouderde basis (net als
+// 'afgewezen' telt 'conflict' niet mee als 'pending' voor haalWachtend()).
+// 401 wordt al apart afgehandeld door apiFetch (sessie verlopen -> PIN-
+// scherm), dat gedrag blijft ongewijzigd.
 export async function probeerSync(id, payload) {
   let gelukt = false;
   try {
     const res = await timeoutRace(saveInspectionRequest(payload), SYNC_TIMEOUT_MS);
-    if (res.ok) { await zetStatus(id, 'synced'); gelukt = true; }
-    else if (res.status >= 400 && res.status < 500) { await zetStatus(id, 'afgewezen'); }
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (typeof data.laatstGewijzigd === 'number') setLaatstGewijzigdBasis(data.laatstGewijzigd);
+      await zetStatus(id, 'synced');
+      gelukt = true;
+    } else if (res.status === 409) {
+      const data = await res.json().catch(() => ({}));
+      if (data.code === 'VEROUDERD') { await zetStatusAlsNogPending(id, 'conflict'); }
+      else { await zetStatus(id, 'afgewezen'); }
+    } else if (res.status >= 400 && res.status < 500) {
+      await zetStatus(id, 'afgewezen');
+    }
   } catch (_) { /* netwerkfout/timeout - blijft 'pending' */ }
   await verversSyncBanner();
   return gelukt;
